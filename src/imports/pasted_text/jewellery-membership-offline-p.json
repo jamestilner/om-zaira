@@ -1,0 +1,371 @@
+Jewellery Membership – Offline Purchase Functionality Extension
+
+You are extending an existing admin dashboard UI for a jewellery membership management system.
+
+Important Instructions
+
+Do NOT modify the current design, layout, colors, typography, spacing, or components.
+
+Reuse the exact same UI style and components already used in the current screens.
+
+Do NOT redesign or restructure existing screens.
+
+Only add new functionality and sections while maintaining complete visual consistency with the existing UI.
+
+If any new UI elements are added, they must match the existing design system, field styles, tables, buttons, spacing, and form patterns already used in the membership detail page.
+
+All additions must feel like a natural extension of the current UI.
+
+Maintain the same layout hierarchy and component styling already used in the membership management screens.
+
+Existing Screens in the Prototype
+
+The current prototype already contains the following pages:
+
+1. Membership Listing Page
+
+Displays all memberships with fields such as:
+
+Membership ID
+
+Customer Name
+
+Plan
+
+Installments (e.g., 6/12)
+
+Payment Progress
+
+Status
+
+Next Payment
+
+Actions (View)
+
+This page provides a summary overview of each membership plan and its payment status.
+
+2. Membership Detail Page (Manage Membership)
+
+This page displays detailed information about a specific membership, including:
+
+Customer Information
+
+Name
+
+Email
+
+Phone
+
+Membership Information
+
+Plan Name
+
+Status
+
+Start Date
+
+End Date
+
+Payment Summary
+
+Plan Amount
+
+Total Paid
+
+Remaining Amount
+
+Installment Information
+
+Payment Progress Bar
+
+Payment History Table
+
+Installment Number
+
+Amount
+
+Date
+
+Payment Method
+
+Transaction ID
+
+Status
+
+Download Receipt
+
+This page currently tracks installment payments only.
+
+New Functionality to Add
+
+Extend the Membership Detail Page (Manage Membership) by introducing a new feature:
+
+Offline Purchase Adjustment
+
+Admins must be able to record jewellery purchases made in-store by customers who are enrolled in a membership plan.
+
+When an offline purchase is recorded:
+
+The system must calculate the total purchase value
+
+Adjust the purchase amount against the amount already paid through installments
+
+Recalculate the remaining payable amount
+
+Recalculate the new EMI amount for the remaining membership duration
+
+This functionality must integrate into the existing membership financial tracking workflow.
+
+1. Add New Button in Membership Detail Page
+
+Inside the Membership Detail (Manage Membership) page, add a new action button near the Payment Summary section.
+
+Button label:
+
+Add Offline Purchase
+
+Behavior:
+
+When clicked, this button opens a modal window (or side panel) where the admin can record the jewellery purchase.
+
+The modal must use the same input field styling, spacing, and layout patterns already used in the admin dashboard forms.
+
+2. Offline Purchase Entry Form
+
+Inside the modal, create a purchase entry form that allows the admin to record jewellery purchases.
+
+Fields to include:
+
+Purchase Date
+Date Picker input
+
+Items Table
+
+Allow the admin to add multiple jewellery items.
+
+Table columns:
+
+Item Name
+
+Category (optional)
+
+Quantity
+
+Price
+
+Subtotal (auto calculated)
+
+Provide a button:
+
++ Add Item
+
+This allows admins to dynamically add multiple items.
+
+Automatic Calculations
+
+The system must automatically calculate:
+
+Subtotal per item
+
+Subtotal = Quantity × Price
+
+Total Purchase Amount
+
+Total Purchase Amount = Sum of all item subtotals
+
+Display the Total Purchase Amount clearly at the bottom of the form.
+
+The value must update dynamically whenever items are added or edited.
+
+3. Calculation Logic (Critical Requirement)
+
+The system must follow the below calculation logic.
+
+Definitions:
+
+Plan Amount = Total membership plan value
+Monthly EMI = Installment amount
+Duration = Total membership duration in months
+Installments Paid = Number of installments already paid
+
+Total Paid =
+Installments Paid × Monthly EMI
+
+Remaining Months =
+Duration − Installments Paid
+
+When an Offline Purchase is Added
+
+Total Purchase Amount =
+Sum of all item subtotals
+
+Outstanding Amount =
+Total Purchase Amount − Total Paid
+
+New EMI =
+Outstanding Amount ÷ Remaining Months
+
+The recalculated EMI represents the amount the customer now needs to pay per month to complete the outstanding balance.
+
+4. Show Calculation Preview Before Saving
+
+Before confirming the purchase entry, show a calculation preview section inside the modal.
+
+This allows the admin to verify the recalculated financial values.
+
+Fields displayed:
+
+Total Purchase Amount
+
+Amount Already Paid
+
+Outstanding Balance
+
+Remaining Months
+
+New Monthly EMI
+
+These values must update dynamically based on the entered purchase items.
+
+5. Modal Action Buttons
+
+At the bottom of the Offline Purchase modal, include two action buttons.
+
+Cancel Button
+
+Closes the modal
+
+Discards all entered data
+
+No changes are saved
+
+Save Button
+
+Saves the offline purchase record
+
+Triggers the financial recalculation
+
+Updates the membership data accordingly
+
+Both buttons must follow the same button styling used elsewhere in the admin interface.
+
+6. Update Payment Summary Automatically
+
+After saving the offline purchase, the Payment Summary section on the Membership Detail page must update automatically.
+
+Update the following values:
+
+Remaining Amount
+
+Monthly EMI
+
+Payment Progress
+
+The progress bar must reflect the updated financial state of the membership.
+
+7. Add Purchase History Section
+
+Below the existing Payment History section, add a new section titled:
+
+Purchase History
+
+This section tracks all jewellery purchases recorded under the membership.
+
+Table columns:
+
+Purchase ID
+
+Purchase Date
+
+Items (summary of items purchased)
+
+Total Purchase Amount
+
+Amount Adjusted from Membership
+
+Remaining Balance After Purchase
+
+Actions (View Details)
+
+This table allows administrators to view and track all offline jewellery purchases associated with the membership.
+
+8. Update Membership Listing Page
+
+After an offline purchase is recorded, the Membership Listing Page must automatically reflect the updated financial information.
+
+Update the following fields:
+
+Payment Progress
+
+Remaining Balance
+
+Next EMI Amount
+
+This ensures the listing page reflects the latest recalculated membership financial status.
+
+Example Scenario – EMI Recalculation After Purchase
+
+Create an example flow demonstrating how the offline purchase functionality works.
+
+Membership Plan:
+
+Gold Purchase Plan
+
+Plan Amount = ₹1,00,000
+Monthly EMI = ₹10,000
+Duration = 12 months
+
+Customer has already paid:
+
+5 installments
+
+Total Paid:
+
+₹50,000
+
+Admin records jewellery purchase:
+
+Gold Necklace – ₹1,20,000
+Gold Ring – ₹80,000
+
+Total Purchase Amount:
+
+₹2,00,000
+
+System calculation:
+
+Outstanding Balance =
+₹2,00,000 − ₹50,000
+
+Outstanding Balance =
+₹1,50,000
+
+Remaining Months =
+12 − 5 = 7
+
+New EMI =
+₹1,50,000 ÷ 7 ≈ ₹21,428 per month
+
+After saving the purchase:
+
+Payment Summary updates automatically
+
+Membership Listing shows the updated EMI
+
+Purchase History displays the newly recorded purchase
+
+Expected Result
+
+The updated prototype must demonstrate:
+
+Offline jewellery purchase recording
+
+Automatic item subtotal and total purchase calculation
+
+Adjustment of purchase against paid membership installments
+
+EMI recalculation based on outstanding balance
+
+Updated membership financial tracking
+
+Purchase history tracking within membership details
