@@ -25,6 +25,7 @@ interface PaymentHistoryItem {
   installmentNumber: number;
   amount: number;
   date: string;
+  paymentDate?: string;
   method: 'UPI' | 'Card' | 'Cash';
   status: 'paid' | 'pending' | 'failed';
   transactionId?: string;
@@ -34,6 +35,7 @@ interface PaymentHistoryItem {
 
 interface PurchaseItem {
   id: string;
+  sku?: string;
   itemName: string;
   category: string;
   subCategory: string;
@@ -45,6 +47,7 @@ interface PurchaseItem {
 interface PurchaseRecord {
   id: string;
   purchaseId: string;
+  invoiceNumber?: string;
   purchaseDate: string;
   items: PurchaseItem[];
   totalPurchaseAmount: number;
@@ -91,7 +94,7 @@ export default function MembershipDetail({ membership: initialMembership, onClos
     duration: initialMembership.duration || initialMembership.totalInstallments,
     purchaseHistory: initialMembership.purchaseHistory || [],
   });
-  
+
   const [showUpdatePaymentModal, setShowUpdatePaymentModal] = useState(false);
   const [showOfflinePurchaseModal, setShowOfflinePurchaseModal] = useState(false);
   const [showPurchaseDetailModal, setShowPurchaseDetailModal] = useState(false);
@@ -142,9 +145,20 @@ export default function MembershipDetail({ membership: initialMembership, onClos
 
   // Offline Purchase Form State
   const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0]);
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [isDifferenceApplicable, setIsDifferenceApplicable] = useState(false);
+  const [differenceAmount, setDifferenceAmount] = useState<number | ''>('');
   const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([
-    { id: '1', itemName: '', category: '', subCategory: '', quantity: 1, price: 0, subtotal: 0 },
+    { id: '1', sku: '', itemName: '', category: '', subCategory: '', quantity: 1, price: 0, subtotal: 0 },
   ]);
+
+  const MOCK_SKUS = useMemo(() => [
+    { sku: 'RN-101', name: 'Diamond Engagement Ring', category: 'Rings', price: 95000 },
+    { sku: 'NK-205', name: 'Gold Chain Necklace', category: 'Necklaces', price: 45000 },
+    { sku: 'ER-302', name: 'Pearl Drop Earrings', category: 'Earrings', price: 15000 },
+    { sku: 'BR-401', name: 'Silver Charm Bracelet', category: 'Bracelets', price: 8500 },
+    { sku: 'NK-881', name: 'Solitaire Pendant', category: 'Necklaces', price: 32000 },
+  ], []);
 
   // Calculate totals for offline purchase
   const totalPurchaseAmount = useMemo(() => {
@@ -152,16 +166,24 @@ export default function MembershipDetail({ membership: initialMembership, onClos
   }, [purchaseItems]);
 
   const remainingMonths = (membership.duration || membership.totalInstallments) - membership.installmentsPaid;
-  
+
   const calculationPreview = useMemo(() => {
     const totalOfflinePurchaseAmount = totalPurchaseAmount;
     const totalAmount = membership.planAmount + totalPurchaseAmount;
     const amountAlreadyPaid = membership.totalPaid;
-    const outstandingBalance = totalAmount - amountAlreadyPaid;
-    const newEMI = remainingMonths > 0 
-      ? outstandingBalance / remainingMonths 
-      : 0;
-    
+    const outstandingBalance = totalOfflinePurchaseAmount > 0
+      ? totalOfflinePurchaseAmount - amountAlreadyPaid
+      : membership.planAmount - amountAlreadyPaid;
+
+    let newEMI = 0;
+    if (remainingMonths > 0) {
+      if (isDifferenceApplicable && typeof differenceAmount === 'number' && differenceAmount > 0) {
+        newEMI = (outstandingBalance - differenceAmount) / remainingMonths;
+      } else {
+        newEMI = outstandingBalance / remainingMonths;
+      }
+    }
+
     return {
       totalPlanAmount: membership.planAmount,
       totalOfflinePurchaseAmount,
@@ -169,9 +191,9 @@ export default function MembershipDetail({ membership: initialMembership, onClos
       amountAlreadyPaid,
       outstandingBalance,
       remainingMonths,
-      newEMI,
+      newEMI: Math.max(0, newEMI),
     };
-  }, [totalPurchaseAmount, membership.planAmount, membership.totalPaid, remainingMonths]);
+  }, [totalPurchaseAmount, membership.planAmount, membership.totalPaid, remainingMonths, isDifferenceApplicable, differenceAmount, membership.monthlyEMI, membership.totalInstallments]);
 
   // Calculate payment summary breakdown
   const paymentSummary = useMemo(() => {
@@ -180,10 +202,10 @@ export default function MembershipDetail({ membership: initialMembership, onClos
       (sum, purchase) => sum + purchase.totalPurchaseAmount,
       0
     );
-    
+
     // Original plan amount is current plan amount minus all offline purchases
     const originalPlanAmount = membership.planAmount - totalOfflinePurchases;
-    
+
     return {
       originalPlanAmount,
       offlinePurchaseAmount: totalOfflinePurchases,
@@ -243,9 +265,9 @@ export default function MembershipDetail({ membership: initialMembership, onClos
   const handleUpdatePayment = (payment: PaymentHistoryItem) => {
     setSelectedPayment(payment);
     setPaymentForm({
-      transactionId: '',
+      transactionId: payment.transactionId || '',
       paymentMethod: payment.method,
-      paymentDate: new Date().toISOString().split('T')[0],
+      paymentDate: payment.paymentDate || new Date().toISOString().split('T')[0],
       notes: payment.notes || '',
       attachments: payment.attachments || [],
       markAsPaid: payment.status === 'paid',
@@ -267,7 +289,7 @@ export default function MembershipDetail({ membership: initialMembership, onClos
     );
 
     let updatedPaymentHistory: PaymentHistoryItem[];
-    
+
     if (existingPaymentIndex >= 0) {
       // Update existing payment
       updatedPaymentHistory = membership.paymentHistory.map(payment => {
@@ -276,7 +298,7 @@ export default function MembershipDetail({ membership: initialMembership, onClos
             ...payment,
             transactionId: paymentForm.transactionId,
             method: paymentForm.paymentMethod,
-            date: paymentForm.paymentDate,
+            paymentDate: paymentForm.paymentDate,
             notes: paymentForm.notes,
             attachments: paymentForm.attachments,
             status: paymentForm.markAsPaid ? ('paid' as const) : payment.status,
@@ -289,7 +311,8 @@ export default function MembershipDetail({ membership: initialMembership, onClos
       const newPayment: PaymentHistoryItem = {
         installmentNumber: selectedPayment.installmentNumber,
         amount: selectedPayment.amount,
-        date: paymentForm.paymentDate,
+        date: selectedPayment.date,
+        paymentDate: paymentForm.paymentDate,
         method: paymentForm.paymentMethod,
         transactionId: paymentForm.transactionId,
         notes: paymentForm.notes,
@@ -346,6 +369,7 @@ export default function MembershipDetail({ membership: initialMembership, onClos
   const handleAddPurchaseItem = () => {
     const newItem: PurchaseItem = {
       id: Date.now().toString(),
+      sku: '',
       itemName: '',
       category: '',
       subCategory: '',
@@ -367,6 +391,15 @@ export default function MembershipDetail({ membership: initialMembership, onClos
       items.map(item => {
         if (item.id === id) {
           const updatedItem = { ...item, [field]: value };
+
+          if (field === 'sku') {
+            const found = MOCK_SKUS.find(m => m.sku === value);
+            if (found) {
+              updatedItem.itemName = found.name;
+              updatedItem.category = found.category;
+            }
+          }
+
           // Reset subcategory when category changes
           if (field === 'category') {
             updatedItem.subCategory = '';
@@ -397,16 +430,38 @@ export default function MembershipDetail({ membership: initialMembership, onClos
 
     // Generate purchase ID
     const purchaseId = `PUR-${Date.now()}`;
+
+    // Difference adjustment calculations
+    const diffAmt = (isDifferenceApplicable && typeof differenceAmount === 'number' && differenceAmount > 0) ? differenceAmount : 0;
     
+    // Create extra payment record if difference amount applied
+    let updatedPaymentHistory = [...membership.paymentHistory];
+    if (diffAmt > 0) {
+      const diffPayment: PaymentHistoryItem = {
+        installmentNumber: Date.now(), // unique identifier for offline adjustment
+        amount: diffAmt,
+        date: purchaseDate,
+        method: 'Cash',
+        status: 'pending',
+        notes: `Offline Purchase Adjustment (Difference Amount)`,
+      };
+      updatedPaymentHistory.push(diffPayment);
+    }
+
+    // Do not add difference amount to totalPaid yet since it's just pending
+    const updatedTotalPaid = membership.totalPaid;
+    const updatedRemaining = calculationPreview.outstandingBalance;
+
     // Create purchase record
     const newPurchase: PurchaseRecord = {
       id: Date.now().toString(),
       purchaseId,
+      invoiceNumber,
       purchaseDate,
       items: [...purchaseItems],
       totalPurchaseAmount,
-      amountAdjusted: membership.totalPaid,
-      remainingBalanceAfterPurchase: calculationPreview.outstandingBalance,
+      amountAdjusted: updatedTotalPaid,
+      remainingBalanceAfterPurchase: updatedRemaining,
       newEMI: calculationPreview.newEMI,
     };
 
@@ -414,26 +469,31 @@ export default function MembershipDetail({ membership: initialMembership, onClos
     const updatedMembership: Membership = {
       ...membership,
       planAmount: calculationPreview.totalAmount, // Update to include offline purchase
-      remaining: calculationPreview.outstandingBalance,
+      remaining: updatedRemaining,
+      totalPaid: updatedTotalPaid,
       monthlyEMI: calculationPreview.newEMI,
-      paymentProgress: Math.round((membership.totalPaid / calculationPreview.totalAmount) * 100), // Recalculate based on new total
+      paymentProgress: Math.round((updatedTotalPaid / calculationPreview.totalAmount) * 100),
       purchaseHistory: [...(membership.purchaseHistory || []), newPurchase],
+      paymentHistory: updatedPaymentHistory,
     };
 
     setMembership(updatedMembership);
-    
+
     // Notify parent component of update
     if (onUpdate) {
       onUpdate(updatedMembership);
     }
-    
+
     // Reset form
     setPurchaseDate(new Date().toISOString().split('T')[0]);
+    setInvoiceNumber('');
+    setIsDifferenceApplicable(false);
+    setDifferenceAmount('');
     setPurchaseItems([
-      { id: '1', itemName: '', category: '', subCategory: '', quantity: 1, price: 0, subtotal: 0 },
+      { id: '1', sku: '', itemName: '', category: '', subCategory: '', quantity: 1, price: 0, subtotal: 0 },
     ]);
     setShowOfflinePurchaseModal(false);
-    
+
     toast.success('Offline purchase recorded successfully');
   };
 
@@ -456,7 +516,7 @@ export default function MembershipDetail({ membership: initialMembership, onClos
     for (let i = 1; i <= membership.totalInstallments; i++) {
       // Check if this installment already has payment data
       const existingPayment = paymentMap.get(i);
-      
+
       if (existingPayment) {
         // Use existing payment data
         installments.push(existingPayment);
@@ -464,7 +524,7 @@ export default function MembershipDetail({ membership: initialMembership, onClos
         // Generate pending installment
         const installmentDate = new Date(startDate);
         installmentDate.setMonth(startDate.getMonth() + (i - 1));
-        
+
         installments.push({
           installmentNumber: i,
           amount: currentEMI,
@@ -474,6 +534,37 @@ export default function MembershipDetail({ membership: initialMembership, onClos
         });
       }
     }
+
+    // Include extra payments (e.g., Difference Amounts)
+    const extraPayments = membership.paymentHistory.filter(
+      (p) => p.installmentNumber > membership.totalInstallments
+    );
+    installments.push(...extraPayments);
+
+    // Helper to safely parse dates avoiding NaN on DD/MM/YYYY formats
+    const parseDateForSort = (dateStr: string) => {
+      if (!dateStr) return 0;
+      const t = new Date(dateStr).getTime();
+      if (!isNaN(t)) return t;
+      const parts = dateStr.split(/[-/]/);
+      if (parts.length === 3) {
+        return new Date(`${parts[2]}-${parts[1]}-${parts[0]}`).getTime();
+      }
+      return 0;
+    };
+
+    // Sort by Date (increasing order), prioritize offline adjustments in a tie
+    installments.sort((a, b) => {
+      const timeDiff = parseDateForSort(a.date) - parseDateForSort(b.date);
+      if (timeDiff === 0) {
+        const aIsDiff = a.installmentNumber > membership.totalInstallments;
+        const bIsDiff = b.installmentNumber > membership.totalInstallments;
+        if (aIsDiff && !bIsDiff) return -1;
+        if (!aIsDiff && bIsDiff) return 1;
+        return (a.installmentNumber as number) - (b.installmentNumber as number);
+      }
+      return timeDiff;
+    });
 
     return installments;
   }, [membership.paymentHistory, membership.totalInstallments, membership.startDate, membership.monthlyEMI, membership.planAmount]);
@@ -504,9 +595,9 @@ export default function MembershipDetail({ membership: initialMembership, onClos
 
     // Update local state
     setMembership(updatedMembership);
-    
+
     // Update mock groups (increment currentMembers)
-    setMockGroups(prev => prev.map(g => 
+    setMockGroups(prev => prev.map(g =>
       g.id === group.id ? { ...g, currentMembers: g.currentMembers + 1 } : g
     ));
 
@@ -612,9 +703,9 @@ export default function MembershipDetail({ membership: initialMembership, onClos
                   </div>
                 )}
                 <div>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="w-full mt-2"
                     onClick={() => setShowAssignGroupModal(true)}
                   >
@@ -632,7 +723,7 @@ export default function MembershipDetail({ membership: initialMembership, onClos
             <h3 className="text-sm font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
               Payment Summary
             </h3>
-            <Button 
+            <Button
               onClick={() => setShowOfflinePurchaseModal(true)}
               size="sm"
               className="gap-2"
@@ -641,7 +732,7 @@ export default function MembershipDetail({ membership: initialMembership, onClos
               Add Offline Purchase
             </Button>
           </div>
-          
+
           {/* Summary Cards */}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
             {/* Plan Amount */}
@@ -724,13 +815,16 @@ export default function MembershipDetail({ membership: initialMembership, onClos
               <thead className="bg-neutral-50 dark:bg-neutral-800 border-y border-neutral-200 dark:border-neutral-700">
                 <tr>
                   <th className="text-left px-6 py-3 text-xs font-medium text-neutral-600 dark:text-neutral-300">
-                    Installment
+                    Date
+                  </th>
+                  <th className="text-left px-6 py-3 text-xs font-medium text-neutral-600 dark:text-neutral-300">
+                    Title
                   </th>
                   <th className="text-left px-6 py-3 text-xs font-medium text-neutral-600 dark:text-neutral-300">
                     Amount
                   </th>
                   <th className="text-left px-6 py-3 text-xs font-medium text-neutral-600 dark:text-neutral-300">
-                    Date
+                    Payment Date
                   </th>
                   <th className="text-left px-6 py-3 text-xs font-medium text-neutral-600 dark:text-neutral-300">
                     Method
@@ -752,14 +846,19 @@ export default function MembershipDetail({ membership: initialMembership, onClos
                     key={payment.installmentNumber}
                     className="hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors"
                   >
+                    <td className="px-6 py-4 text-sm">
+                      {formatDate(payment.date)}
+                    </td>
                     <td className="px-6 py-4 text-sm font-medium">
-                      #{payment.installmentNumber}
+                      {payment.installmentNumber > membership.totalInstallments
+                        ? 'Difference Amount'
+                        : `Installment #${payment.installmentNumber}`}
                     </td>
                     <td className="px-6 py-4 text-sm">
                       {formatCurrency(payment.amount)}
                     </td>
-                    <td className="px-6 py-4 text-sm">
-                      {formatDate(payment.date)}
+                    <td className="px-6 py-4 text-sm text-neutral-500">
+                      {payment.paymentDate ? formatDate(payment.paymentDate) : '-'}
                     </td>
                     <td className="px-6 py-4 text-sm">
                       {payment.method}
@@ -938,16 +1037,14 @@ export default function MembershipDetail({ membership: initialMembership, onClos
                 role="switch"
                 aria-checked={paymentForm.markAsPaid}
                 onClick={() => setPaymentForm({ ...paymentForm, markAsPaid: !paymentForm.markAsPaid })}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  paymentForm.markAsPaid
-                    ? 'bg-blue-600 dark:bg-blue-500'
-                    : 'bg-neutral-300 dark:bg-neutral-700'
-                }`}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${paymentForm.markAsPaid
+                  ? 'bg-blue-600 dark:bg-blue-500'
+                  : 'bg-neutral-300 dark:bg-neutral-700'
+                  }`}
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    paymentForm.markAsPaid ? 'translate-x-6' : 'translate-x-1'
-                  }`}
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${paymentForm.markAsPaid ? 'translate-x-6' : 'translate-x-1'
+                    }`}
                 />
               </button>
             </div>
@@ -1070,15 +1167,27 @@ export default function MembershipDetail({ membership: initialMembership, onClos
           }
         >
           <div className="space-y-6">
-            {/* Purchase Date */}
-            <FormField>
-              <FormLabel required>Purchase Date</FormLabel>
-              <FormInput
-                type="date"
-                value={purchaseDate}
-                onChange={(e) => setPurchaseDate(e.target.value)}
-              />
-            </FormField>
+            {/* Purchase Date and Invoice Number */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField>
+                <FormLabel required>Purchase Date</FormLabel>
+                <FormInput
+                  type="date"
+                  value={purchaseDate}
+                  onChange={(e) => setPurchaseDate(e.target.value)}
+                />
+              </FormField>
+              <FormField>
+                <FormLabel>Invoice Number</FormLabel>
+                <FormInput
+                  type="text"
+                  maxLength={20}
+                  placeholder="Enter invoice number"
+                  value={invoiceNumber}
+                  onChange={(e) => setInvoiceNumber(e.target.value)}
+                />
+              </FormField>
+            </div>
 
             {/* Items Table */}
             <div>
@@ -1094,20 +1203,20 @@ export default function MembershipDetail({ membership: initialMembership, onClos
                   Add Item
                 </Button>
               </div>
-              
+
               <div className="border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead className="bg-neutral-50 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700">
                       <tr>
                         <th className="text-left px-4 py-3 text-xs font-medium text-neutral-600 dark:text-neutral-300">
-                          Item Name
+                          SKU
+                        </th>
+                        <th className="text-left px-4 py-3 text-xs font-medium text-neutral-600 dark:text-neutral-300">
+                          Item
                         </th>
                         <th className="text-left px-4 py-3 text-xs font-medium text-neutral-600 dark:text-neutral-300">
                           Category
-                        </th>
-                        <th className="text-left px-4 py-3 text-xs font-medium text-neutral-600 dark:text-neutral-300">
-                          Subcategory
                         </th>
                         <th className="text-left px-4 py-3 text-xs font-medium text-neutral-600 dark:text-neutral-300">
                           Quantity
@@ -1126,6 +1235,24 @@ export default function MembershipDetail({ membership: initialMembership, onClos
                     <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
                       {purchaseItems.map((item) => (
                         <tr key={item.id}>
+                          <td className="px-4 py-3 w-32">
+                            <FormInput
+                              type="text"
+                              list={`sku-list-${item.id}`}
+                              placeholder="Search SKU"
+                              value={item.sku || ''}
+                              onChange={(e) =>
+                                handlePurchaseItemChange(item.id, 'sku', e.target.value)
+                              }
+                            />
+                            <datalist id={`sku-list-${item.id}`}>
+                              {MOCK_SKUS.map((m) => (
+                                <option key={m.sku} value={m.sku}>
+                                  {m.name}
+                                </option>
+                              ))}
+                            </datalist>
+                          </td>
                           <td className="px-4 py-3">
                             <FormInput
                               type="text"
@@ -1136,7 +1263,7 @@ export default function MembershipDetail({ membership: initialMembership, onClos
                               }
                             />
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-3 min-w-[150px]">
                             <FormSelect
                               value={item.category}
                               onChange={(e) =>
@@ -1149,28 +1276,18 @@ export default function MembershipDetail({ membership: initialMembership, onClos
                               ))}
                             </FormSelect>
                           </td>
-                          <td className="px-4 py-3">
-                            <FormSelect
-                              value={item.subCategory}
-                              onChange={(e) =>
-                                handlePurchaseItemChange(item.id, 'subCategory', e.target.value)
-                              }
-                              disabled={!item.category}
-                            >
-                              <option value="">Select subcategory</option>
-                              {getSubcategories(item.category).map(sub => (
-                                <option key={sub} value={sub}>{sub}</option>
-                              ))}
-                            </FormSelect>
-                          </td>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-3 w-20">
                             <FormInput
                               type="number"
                               min="1"
+                              max="99"
                               value={item.quantity}
-                              onChange={(e) =>
-                                handlePurchaseItemChange(item.id, 'quantity', parseInt(e.target.value) || 1)
-                              }
+                              onChange={(e) => {
+                                let val = parseInt(e.target.value);
+                                if (isNaN(val)) val = 1;
+                                val = Math.min(99, Math.max(1, val));
+                                handlePurchaseItemChange(item.id, 'quantity', val);
+                              }}
                             />
                           </td>
                           <td className="px-4 py-3">
@@ -1207,9 +1324,53 @@ export default function MembershipDetail({ membership: initialMembership, onClos
                 </div>
               </div>
 
-              {/* Total Purchase Amount */}
-              <div className="mt-4 flex justify-end">
-                <div className="bg-neutral-100 dark:bg-neutral-800 rounded-lg px-6 py-3 border border-neutral-200 dark:border-neutral-700">
+              {/* Total Purchase Amount and Difference Setup */}
+              <div className="mt-4 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+
+                {/* Difference Amount Toggle & Input */}
+                <div className="flex-1 space-y-3 p-4 bg-neutral-50 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 max-w-sm">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">Difference Amount applicable?</p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={isDifferenceApplicable}
+                      onClick={() => {
+                        setIsDifferenceApplicable(!isDifferenceApplicable);
+                        if (isDifferenceApplicable) setDifferenceAmount('');
+                      }}
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${isDifferenceApplicable
+                        ? 'bg-blue-600 dark:bg-blue-500'
+                        : 'bg-neutral-300 dark:bg-neutral-700'
+                        }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isDifferenceApplicable ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                      />
+                    </button>
+                  </div>
+                  {isDifferenceApplicable && (
+                    <div className="mt-3">
+                      <FormLabel>Difference Amount (₹)</FormLabel>
+                      <FormInput
+                        type="number"
+                        min="0"
+                        placeholder="Enter amount"
+                        value={differenceAmount}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value);
+                          setDifferenceAmount(isNaN(val) ? '' : val);
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Total Offline Purchase display */}
+                <div className="bg-neutral-100 dark:bg-neutral-800 rounded-lg px-6 py-3 border border-neutral-200 dark:border-neutral-700 mt-4 md:mt-0 md:ml-auto">
                   <p className="text-sm text-neutral-600 dark:text-neutral-400">Total Offline Purchase Amount</p>
                   <p className="text-2xl font-semibold mt-1">
                     {formatCurrency(totalPurchaseAmount)}
@@ -1237,9 +1398,9 @@ export default function MembershipDetail({ membership: initialMembership, onClos
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-blue-700 dark:text-blue-300">Total Amount (incl. offline purchase)</p>
+                  <p className="text-xs text-blue-700 dark:text-blue-300">Outstanding Balance</p>
                   <p className="text-lg font-semibold text-blue-900 dark:text-blue-100 mt-1">
-                    {formatCurrency(calculationPreview.totalAmount)}
+                    {formatCurrency(calculationPreview.outstandingBalance)}
                   </p>
                 </div>
                 <div>
@@ -1249,20 +1410,14 @@ export default function MembershipDetail({ membership: initialMembership, onClos
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-blue-700 dark:text-blue-300">Outstanding Balance</p>
-                  <p className="text-lg font-semibold text-blue-900 dark:text-blue-100 mt-1">
-                    {formatCurrency(calculationPreview.outstandingBalance)}
-                  </p>
-                </div>
-                <div>
                   <p className="text-xs text-blue-700 dark:text-blue-300">Remaining Months</p>
                   <p className="text-lg font-semibold text-blue-900 dark:text-blue-100 mt-1">
                     {calculationPreview.remainingMonths}
                   </p>
                 </div>
-                <div className="md:col-span-3">
-                  <p className="text-xs text-blue-700 dark:text-blue-300">New Monthly EMI (considering total amount with offline purchase)</p>
-                  <p className="text-2xl font-semibold text-blue-900 dark:text-blue-100 mt-1">
+                <div>
+                  <p className="text-xs text-blue-700 dark:text-blue-300">New Monthly EMI</p>
+                  <p className="text-lg font-semibold text-blue-900 dark:text-blue-100 mt-1">
                     {formatCurrency(calculationPreview.newEMI)}
                   </p>
                 </div>
@@ -1299,10 +1454,14 @@ export default function MembershipDetail({ membership: initialMembership, onClos
         >
           <div className="space-y-6">
             {/* Purchase Info */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <div>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400">Purchase Date</p>
                 <p className="text-sm font-medium mt-1">{formatDate(selectedPurchase.purchaseDate)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400">Invoice Number</p>
+                <p className="text-sm font-medium mt-1">{selectedPurchase.invoiceNumber || '-'}</p>
               </div>
               <div>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400">Total Amount</p>
@@ -1318,13 +1477,13 @@ export default function MembershipDetail({ membership: initialMembership, onClos
                   <thead className="bg-neutral-50 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700">
                     <tr>
                       <th className="text-left px-4 py-3 text-xs font-medium text-neutral-600 dark:text-neutral-300">
-                        Item Name
+                        SKU
+                      </th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-neutral-600 dark:text-neutral-300">
+                        Item
                       </th>
                       <th className="text-left px-4 py-3 text-xs font-medium text-neutral-600 dark:text-neutral-300">
                         Category
-                      </th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-neutral-600 dark:text-neutral-300">
-                        Subcategory
                       </th>
                       <th className="text-left px-4 py-3 text-xs font-medium text-neutral-600 dark:text-neutral-300">
                         Quantity
@@ -1340,9 +1499,9 @@ export default function MembershipDetail({ membership: initialMembership, onClos
                   <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
                     {selectedPurchase.items.map((item) => (
                       <tr key={item.id}>
+                        <td className="px-4 py-3 text-sm">{item.sku || '-'}</td>
                         <td className="px-4 py-3 text-sm">{item.itemName}</td>
                         <td className="px-4 py-3 text-sm">{item.category || '-'}</td>
-                        <td className="px-4 py-3 text-sm">{item.subCategory || '-'}</td>
                         <td className="px-4 py-3 text-sm">{item.quantity}</td>
                         <td className="px-4 py-3 text-sm">{formatCurrency(item.price)}</td>
                         <td className="px-4 py-3 text-sm font-medium">{formatCurrency(item.subtotal)}</td>
@@ -1396,7 +1555,7 @@ export default function MembershipDetail({ membership: initialMembership, onClos
               {mockGroups.map((group) => {
                 const availableSlots = group.maxCapacity - group.currentMembers;
                 const isFull = availableSlots <= 0;
-                
+
                 return (
                   <tr key={group.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/50">
                     <td className="px-4 py-3 text-sm font-medium">{group.name}</td>
