@@ -202,10 +202,18 @@ export default function Memberships() {
       },
     ];
 
+    // Prepare group list - mock data
+    const groupList = [
+      { id: 'GRP-001', name: 'Mumbai Elite Traders' },
+      { id: 'GRP-002', name: 'Surat Diamond Merchants' },
+      { id: 'GRP-003', name: 'Bengaluru Trade Group' }
+    ];
+
     return (
       <AddMembership
         customers={customerList}
         plans={planList}
+        groups={groupList}
         onBack={() => setIsAddingMembership(false)}
         onSave={handleSaveMembership}
       />

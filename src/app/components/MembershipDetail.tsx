@@ -6,7 +6,7 @@
  */
 
 import { useState, useMemo } from 'react';
-import { ChevronLeft, Download, Edit2, CheckCircle2, Plus, Trash2, Eye, ShoppingBag } from 'lucide-react';
+import { ChevronLeft, Download, Edit2, CheckCircle2, Plus, Trash2, Eye, ShoppingBag, Gift } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { toast } from 'sonner';
@@ -98,6 +98,7 @@ export default function MembershipDetail({ membership: initialMembership, onClos
   const [showUpdatePaymentModal, setShowUpdatePaymentModal] = useState(false);
   const [showOfflinePurchaseModal, setShowOfflinePurchaseModal] = useState(false);
   const [showPurchaseDetailModal, setShowPurchaseDetailModal] = useState(false);
+  const [showGiftCardModal, setShowGiftCardModal] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<PaymentHistoryItem | null>(null);
   const [selectedPurchase, setSelectedPurchase] = useState<PurchaseRecord | null>(null);
   const [paymentForm, setPaymentForm] = useState({
@@ -107,6 +108,13 @@ export default function MembershipDetail({ membership: initialMembership, onClos
     notes: '',
     attachments: [] as string[],
     markAsPaid: false,
+  });
+
+  const [giftCardForm, setGiftCardForm] = useState({
+    amount: '',
+    installmentsToClear: 1,
+    remarks: '',
+    differenceMethod: 'UPI' as 'UPI' | 'Card' | 'Cash',
   });
 
   const [showAssignGroupModal, setShowAssignGroupModal] = useState(false);
@@ -146,8 +154,9 @@ export default function MembershipDetail({ membership: initialMembership, onClos
   // Offline Purchase Form State
   const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0]);
   const [invoiceNumber, setInvoiceNumber] = useState('');
-  const [isDifferenceApplicable, setIsDifferenceApplicable] = useState(false);
+  const [isUpdateInstallments, setIsUpdateInstallments] = useState(false);
   const [differenceAmount, setDifferenceAmount] = useState<number | ''>('');
+  const [newInstallmentCount, setNewInstallmentCount] = useState<number | ''>('');
   const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([
     { id: '1', sku: '', itemName: '', category: '', subCategory: '', quantity: 1, price: 0, subtotal: 0 },
   ]);
@@ -168,32 +177,43 @@ export default function MembershipDetail({ membership: initialMembership, onClos
   const remainingMonths = (membership.duration || membership.totalInstallments) - membership.installmentsPaid;
 
   const calculationPreview = useMemo(() => {
-    const totalOfflinePurchaseAmount = totalPurchaseAmount;
+    // Calculate total of past offline purchases
+    const pastOfflinePurchases = (membership.purchaseHistory || []).reduce(
+      (sum, purchase) => sum + purchase.totalPurchaseAmount,
+      0
+    );
+    const totalOfflinePurchaseAmount = pastOfflinePurchases + totalPurchaseAmount;
+    
+    // membership.planAmount already includes past offline purchases
     const totalAmount = membership.planAmount + totalPurchaseAmount;
     const amountAlreadyPaid = membership.totalPaid;
-    const outstandingBalance = totalOfflinePurchaseAmount > 0
-      ? totalOfflinePurchaseAmount - amountAlreadyPaid
-      : membership.planAmount - amountAlreadyPaid;
+    
+    // Outstanding balance calculates against new total amount
+    const outstandingBalance = totalAmount - amountAlreadyPaid;
 
-    let newEMI = 0;
-    if (remainingMonths > 0) {
-      if (isDifferenceApplicable && typeof differenceAmount === 'number' && differenceAmount > 0) {
-        newEMI = (outstandingBalance - differenceAmount) / remainingMonths;
+    const finalInstallmentCount = (typeof newInstallmentCount === 'number' && newInstallmentCount > 0)
+      ? newInstallmentCount
+      : remainingMonths;
+
+    let newEMI = membership.monthlyEMI || (membership.planAmount / membership.totalInstallments);
+    if (remainingMonths > 0 && isUpdateInstallments && finalInstallmentCount > 0) {
+      if (typeof differenceAmount === 'number' && differenceAmount > 0) {
+        newEMI = (outstandingBalance - differenceAmount) / finalInstallmentCount;
       } else {
-        newEMI = outstandingBalance / remainingMonths;
+        newEMI = outstandingBalance / finalInstallmentCount;
       }
     }
 
     return {
-      totalPlanAmount: membership.planAmount,
+      totalPlanAmount: membership.planAmount - pastOfflinePurchases,
       totalOfflinePurchaseAmount,
       totalAmount,
       amountAlreadyPaid,
       outstandingBalance,
-      remainingMonths,
+      remainingMonths: finalInstallmentCount,
       newEMI: Math.max(0, newEMI),
     };
-  }, [totalPurchaseAmount, membership.planAmount, membership.totalPaid, remainingMonths, isDifferenceApplicable, differenceAmount, membership.monthlyEMI, membership.totalInstallments]);
+  }, [totalPurchaseAmount, membership.planAmount, membership.purchaseHistory, membership.totalPaid, remainingMonths, isUpdateInstallments, differenceAmount, newInstallmentCount, membership.monthlyEMI, membership.totalInstallments]);
 
   // Calculate payment summary breakdown
   const paymentSummary = useMemo(() => {
@@ -432,7 +452,7 @@ export default function MembershipDetail({ membership: initialMembership, onClos
     const purchaseId = `PUR-${Date.now()}`;
 
     // Difference adjustment calculations
-    const diffAmt = (isDifferenceApplicable && typeof differenceAmount === 'number' && differenceAmount > 0) ? differenceAmount : 0;
+    const diffAmt = (isUpdateInstallments && typeof differenceAmount === 'number' && differenceAmount > 0) ? differenceAmount : 0;
     
     // Create extra payment record if difference amount applied
     let updatedPaymentHistory = [...membership.paymentHistory];
@@ -466,12 +486,15 @@ export default function MembershipDetail({ membership: initialMembership, onClos
     };
 
     // Update membership with new calculations
+    const newTotalInstallments = membership.installmentsPaid + calculationPreview.remainingMonths;
     const updatedMembership: Membership = {
       ...membership,
       planAmount: calculationPreview.totalAmount, // Update to include offline purchase
       remaining: updatedRemaining,
       totalPaid: updatedTotalPaid,
       monthlyEMI: calculationPreview.newEMI,
+      totalInstallments: isUpdateInstallments ? newTotalInstallments : membership.totalInstallments,
+      duration: isUpdateInstallments ? newTotalInstallments : membership.duration,
       paymentProgress: Math.round((updatedTotalPaid / calculationPreview.totalAmount) * 100),
       purchaseHistory: [...(membership.purchaseHistory || []), newPurchase],
       paymentHistory: updatedPaymentHistory,
@@ -487,8 +510,9 @@ export default function MembershipDetail({ membership: initialMembership, onClos
     // Reset form
     setPurchaseDate(new Date().toISOString().split('T')[0]);
     setInvoiceNumber('');
-    setIsDifferenceApplicable(false);
+    setIsUpdateInstallments(false);
     setDifferenceAmount('');
+    setNewInstallmentCount('');
     setPurchaseItems([
       { id: '1', sku: '', itemName: '', category: '', subCategory: '', quantity: 1, price: 0, subtotal: 0 },
     ]);
@@ -569,6 +593,99 @@ export default function MembershipDetail({ membership: initialMembership, onClos
     return installments;
   }, [membership.paymentHistory, membership.totalInstallments, membership.startDate, membership.monthlyEMI, membership.planAmount]);
 
+  const pendingInstallments = useMemo(() => {
+    return allInstallments.filter(i => i.status === 'pending');
+  }, [allInstallments]);
+
+  const giftCardPreview = useMemo(() => {
+    const installmentsToClear = Math.max(1, Math.min(giftCardForm.installmentsToClear, pendingInstallments.length));
+    const targetInstallments = pendingInstallments.slice(0, installmentsToClear);
+    const totalRequired = targetInstallments.reduce((sum, inst) => sum + inst.amount, 0);
+    const amount = parseFloat(giftCardForm.amount as string) || 0;
+    const differenceToPay = Math.max(0, totalRequired - amount);
+
+    return {
+      targetInstallments,
+      totalRequired,
+      differenceToPay,
+      installmentsToClear
+    };
+  }, [pendingInstallments, giftCardForm.installmentsToClear, giftCardForm.amount]);
+
+  const handleSubmitGiftCard = () => {
+    const amount = parseFloat(giftCardForm.amount as string);
+    if (!amount || amount <= 0) {
+      toast.error('Please enter a valid gift card amount');
+      return;
+    }
+
+    if (giftCardForm.installmentsToClear <= 0 || giftCardPreview.targetInstallments.length === 0) {
+      toast.error('No pending installments to clear');
+      return;
+    }
+
+    let updatedPaymentHistory = [...membership.paymentHistory];
+    let updatedTotalPaid = membership.totalPaid;
+    let updatedInstallmentsPaid = membership.installmentsPaid;
+
+    giftCardPreview.targetInstallments.forEach((inst) => {
+      const existingPaymentIndex = updatedPaymentHistory.findIndex(
+        p => p.installmentNumber === inst.installmentNumber
+      );
+
+      const noteText = `Paid via Gift Card (₹${amount})` + (giftCardPreview.differenceToPay > 0 ? ` + ${giftCardForm.differenceMethod} (₹${giftCardPreview.differenceToPay})` : '') + (giftCardForm.remarks ? ` - ${giftCardForm.remarks}` : '');
+
+      const paymentDetail: PaymentHistoryItem = {
+        installmentNumber: inst.installmentNumber,
+        amount: inst.amount,
+        date: inst.date,
+        paymentDate: new Date().toISOString().split('T')[0],
+        method: giftCardForm.differenceMethod, 
+        status: 'paid',
+        notes: noteText
+      };
+
+      if (existingPaymentIndex >= 0) {
+        updatedPaymentHistory[existingPaymentIndex] = {
+          ...updatedPaymentHistory[existingPaymentIndex],
+          ...paymentDetail
+        };
+      } else {
+        updatedPaymentHistory.push(paymentDetail);
+      }
+
+      updatedTotalPaid += inst.amount;
+      updatedInstallmentsPaid += 1;
+    });
+
+    const updatedRemaining = membership.planAmount - updatedTotalPaid;
+    const updatedPaymentProgress = Math.round((updatedTotalPaid / membership.planAmount) * 100);
+
+    const updatedMembership: Membership = {
+      ...membership,
+      paymentHistory: updatedPaymentHistory,
+      totalPaid: updatedTotalPaid,
+      installmentsPaid: updatedInstallmentsPaid,
+      remaining: updatedRemaining,
+      paymentProgress: updatedPaymentProgress,
+    };
+
+    setMembership(updatedMembership);
+
+    if (onUpdate) {
+      onUpdate(updatedMembership);
+    }
+
+    toast.success('Gift card applied successfully');
+    setShowGiftCardModal(false);
+    setGiftCardForm({
+      amount: '',
+      installmentsToClear: 1,
+      remarks: '',
+      differenceMethod: 'UPI'
+    });
+  };
+
   const handleAssignGroup = (group: GroupItem) => {
     if (membership.groupMembershipId) {
       if (!window.confirm('This member is already assigned to a group. Do you want to reassign?')) {
@@ -633,7 +750,7 @@ export default function MembershipDetail({ membership: initialMembership, onClos
             </p>
           </div>
           <Button onClick={handleManageMembership}>
-            Manage Membership
+            Edit Membership
           </Button>
         </div>
       </div>
@@ -702,35 +819,48 @@ export default function MembershipDetail({ membership: initialMembership, onClos
                     </p>
                   </div>
                 )}
-                <div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full mt-2"
-                    onClick={() => setShowAssignGroupModal(true)}
-                  >
-                    {membership.groupMembershipId ? 'Reassign Group' : 'Assign Group'}
-                  </Button>
-                </div>
+                {!membership.groupMembershipId && (
+                  <div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full mt-2"
+                      onClick={() => setShowAssignGroupModal(true)}
+                    >
+                      Assign Group
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Payment Summary with Add Offline Purchase Button */}
+        {/* Payment Summary with Action Buttons */}
         <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
               Payment Summary
             </h3>
-            <Button
-              onClick={() => setShowOfflinePurchaseModal(true)}
-              size="sm"
-              className="gap-2"
-            >
-              <ShoppingBag className="w-4 h-4" />
-              Add Offline Purchase
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => setShowGiftCardModal(true)}
+                size="sm"
+                variant="outline"
+                className="gap-2 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300"
+              >
+                <Gift className="w-4 h-4" />
+                Apply Gift Card
+              </Button>
+              <Button
+                onClick={() => setShowOfflinePurchaseModal(true)}
+                size="sm"
+                className="gap-2"
+              >
+                <ShoppingBag className="w-4 h-4" />
+                Add Offline Purchase
+              </Button>
+            </div>
           </div>
 
           {/* Summary Cards */}
@@ -1331,40 +1461,56 @@ export default function MembershipDetail({ membership: initialMembership, onClos
                 <div className="flex-1 space-y-3 p-4 bg-neutral-50 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 max-w-sm">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium">Difference Amount applicable?</p>
+                      <p className="text-sm font-medium">Update Installments?</p>
                     </div>
                     <button
                       type="button"
                       role="switch"
-                      aria-checked={isDifferenceApplicable}
+                      aria-checked={isUpdateInstallments}
                       onClick={() => {
-                        setIsDifferenceApplicable(!isDifferenceApplicable);
-                        if (isDifferenceApplicable) setDifferenceAmount('');
+                        setIsUpdateInstallments(!isUpdateInstallments);
+                        if (isUpdateInstallments) setDifferenceAmount('');
                       }}
-                      className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${isDifferenceApplicable
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${isUpdateInstallments
                         ? 'bg-blue-600 dark:bg-blue-500'
                         : 'bg-neutral-300 dark:bg-neutral-700'
                         }`}
                     >
                       <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isDifferenceApplicable ? 'translate-x-6' : 'translate-x-1'
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isUpdateInstallments ? 'translate-x-6' : 'translate-x-1'
                           }`}
                       />
                     </button>
                   </div>
-                  {isDifferenceApplicable && (
-                    <div className="mt-3">
-                      <FormLabel>Difference Amount (₹)</FormLabel>
-                      <FormInput
-                        type="number"
-                        min="0"
-                        placeholder="Enter amount"
-                        value={differenceAmount}
-                        onChange={(e) => {
-                          const val = parseFloat(e.target.value);
-                          setDifferenceAmount(isNaN(val) ? '' : val);
-                        }}
-                      />
+                  {isUpdateInstallments && (
+                    <div className="mt-4 space-y-4">
+                      <div>
+                        <FormLabel>New Remaining Installments</FormLabel>
+                        <FormInput
+                          type="number"
+                          min="1"
+                          placeholder={`Current: ${remainingMonths}`}
+                          value={newInstallmentCount}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value);
+                            setNewInstallmentCount(isNaN(val) ? '' : val);
+                          }}
+                        />
+                        <p className="text-xs text-neutral-500 mt-1">Leave blank to keep {remainingMonths} installments.</p>
+                      </div>
+                      <div>
+                        <FormLabel>Difference Amount (₹)</FormLabel>
+                        <FormInput
+                          type="number"
+                          min="0"
+                          placeholder="Enter amount"
+                          value={differenceAmount}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            setDifferenceAmount(isNaN(val) ? '' : val);
+                          }}
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1373,7 +1519,7 @@ export default function MembershipDetail({ membership: initialMembership, onClos
                 <div className="bg-neutral-100 dark:bg-neutral-800 rounded-lg px-6 py-3 border border-neutral-200 dark:border-neutral-700 mt-4 md:mt-0 md:ml-auto">
                   <p className="text-sm text-neutral-600 dark:text-neutral-400">Total Offline Purchase Amount</p>
                   <p className="text-2xl font-semibold mt-1">
-                    {formatCurrency(totalPurchaseAmount)}
+                    {formatCurrency(calculationPreview.totalOfflinePurchaseAmount)}
                   </p>
                 </div>
               </div>
@@ -1528,6 +1674,107 @@ export default function MembershipDetail({ membership: initialMembership, onClos
                 <span className="text-sm font-medium">New Monthly EMI:</span>
                 <span className="text-lg font-semibold">{formatCurrency(selectedPurchase.newEMI)}</span>
               </div>
+            </div>
+          </div>
+        </FormModal>
+      )}
+
+      {/* Gift Card Modal */}
+      {showGiftCardModal && (
+        <FormModal
+          title="Apply Gift Card"
+          description="Redeem a gift card towards upcoming pending installments"
+          isOpen={showGiftCardModal}
+          onClose={() => setShowGiftCardModal(false)}
+          maxWidth="max-w-xl"
+          footer={
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowGiftCardModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSubmitGiftCard}
+              >
+                Confirm Redemption
+              </Button>
+            </div>
+          }
+        >
+          <div className="space-y-4">
+            <div className="flex gap-4">
+              <FormField className="flex-1">
+                <FormLabel required>Gift Card Amount (₹)</FormLabel>
+                <FormInput
+                  type="number"
+                  placeholder="e.g., 11000"
+                  min="1"
+                  value={giftCardForm.amount}
+                  onChange={(e) => setGiftCardForm({ ...giftCardForm, amount: e.target.value })}
+                />
+              </FormField>
+
+              <FormField className="flex-1">
+                <FormLabel required>Installments to Clear</FormLabel>
+                <FormInput
+                  type="number"
+                  min="1"
+                  max={pendingInstallments.length}
+                  value={giftCardForm.installmentsToClear}
+                  onChange={(e) => {
+                    let val = parseInt(e.target.value);
+                    if (isNaN(val) || val < 1) val = 1;
+                    setGiftCardForm({ ...giftCardForm, installmentsToClear: val });
+                  }}
+                />
+                <p className="text-xs text-neutral-500 mt-1">Pending: {pendingInstallments.length}</p>
+              </FormField>
+            </div>
+
+            <FormField>
+              <FormLabel>Remarks / Notes</FormLabel>
+              <FormInput
+                type="text"
+                placeholder="Optional notes"
+                value={giftCardForm.remarks}
+                onChange={(e) => setGiftCardForm({ ...giftCardForm, remarks: e.target.value })}
+              />
+            </FormField>
+
+            <div className="bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-5 mt-6">
+              <h4 className="text-sm font-medium text-indigo-900 dark:text-indigo-100 mb-3">Redemption Summary</h4>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-indigo-700 dark:text-indigo-300">Clearing Installments (x{giftCardPreview.installmentsToClear}):</span>
+                  <span className="font-medium text-indigo-900 dark:text-indigo-100">{formatCurrency(giftCardPreview.totalRequired)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-indigo-700 dark:text-indigo-300">Gift Card Used:</span>
+                  <span className="font-medium text-indigo-900 dark:text-indigo-100">- {formatCurrency(parseFloat(giftCardForm.amount as string) || 0)}</span>
+                </div>
+                <div className="flex justify-between text-base font-semibold pt-2 border-t border-indigo-200 dark:border-indigo-800">
+                  <span className="text-indigo-900 dark:text-indigo-100">Difference to Pay:</span>
+                  <span className="text-indigo-900 dark:text-indigo-100">{formatCurrency(giftCardPreview.differenceToPay)}</span>
+                </div>
+              </div>
+
+              {giftCardPreview.differenceToPay > 0 && (
+                <div className="mt-4 pt-4 border-t border-indigo-200 dark:border-indigo-800">
+                  <FormLabel className="text-indigo-900 dark:text-indigo-100">Difference Payment Method</FormLabel>
+                  <FormSelect
+                    value={giftCardForm.differenceMethod}
+                    onChange={(e) => setGiftCardForm({ ...giftCardForm, differenceMethod: e.target.value as any })}
+                  >
+                    <option value="UPI">UPI</option>
+                    <option value="Card">Card</option>
+                    <option value="Cash">Cash</option>
+                  </FormSelect>
+                </div>
+              )}
             </div>
           </div>
         </FormModal>

@@ -40,20 +40,28 @@ interface CustomPlanData {
 interface MembershipFormData {
   customerId: string;
   planId: string;
+  groupId?: string;
   customPlan?: CustomPlanData;
+}
+
+interface Group {
+  id: string;
+  name: string;
 }
 
 interface AddMembershipProps {
   customers: Customer[];
   plans: Plan[];
+  groups?: Group[];
   onBack: () => void;
   onSave: (membershipData: MembershipFormData) => void;
 }
 
-export default function AddMembership({ customers, plans, onBack, onSave }: AddMembershipProps) {
+export default function AddMembership({ customers, plans, groups = [], onBack, onSave }: AddMembershipProps) {
   const [formData, setFormData] = useState<MembershipFormData>({
     customerId: '',
     planId: '',
+    groupId: '',
   });
 
   const [customPlanData, setCustomPlanData] = useState<CustomPlanData>({
@@ -107,6 +115,10 @@ export default function AddMembership({ customers, plans, onBack, onSave }: AddM
     }
   };
 
+  const handleSelectGroup = (groupId: string) => {
+    setFormData(prev => ({ ...prev, groupId }));
+  };
+
   const handleCustomPlanChange = (field: keyof CustomPlanData, value: string | number) => {
     setCustomPlanData(prev => ({ ...prev, [field]: value }));
     if (errors[field]) {
@@ -157,6 +169,7 @@ export default function AddMembership({ customers, plans, onBack, onSave }: AddM
     const membershipData: MembershipFormData = {
       customerId: formData.customerId,
       planId: formData.planId,
+      ...(formData.groupId && { groupId: formData.groupId }),
       ...(isCustomPlan && { customPlan: customPlanData }),
     };
 
@@ -194,7 +207,7 @@ export default function AddMembership({ customers, plans, onBack, onSave }: AddM
       <div className="max-w-3xl space-y-6">
         {/* Step 1: Select Customer */}
         <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 p-6">
-          <h2 className="text-lg mb-6">Step 1: Select Customer</h2>
+          <h2 className="text-lg mb-6">Select Customer</h2>
 
           <div className="space-y-4">
             <div>
@@ -236,7 +249,7 @@ export default function AddMembership({ customers, plans, onBack, onSave }: AddM
                             {customer.name}
                           </div>
                           <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                            {customer.email} • ID: {customer.id}
+                            {customer.email} • Phone: {customer.phone} • ID: {customer.id}
                           </div>
                         </button>
                       ))}
@@ -249,8 +262,10 @@ export default function AddMembership({ customers, plans, onBack, onSave }: AddM
                     <div className="font-medium text-sm text-neutral-900 dark:text-white">
                       {selectedCustomer.name}
                     </div>
-                    <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                      {selectedCustomer.email} • ID: {selectedCustomer.id}
+                    <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 space-y-1">
+                      <p>ID: {selectedCustomer.id}</p>
+                      <p>Email: {selectedCustomer.email}</p>
+                      <p>Phone: {selectedCustomer.phone}</p>
                     </div>
                   </div>
                   <button
@@ -271,7 +286,7 @@ export default function AddMembership({ customers, plans, onBack, onSave }: AddM
 
         {/* Step 2: Select Plan */}
         <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 p-6">
-          <h2 className="text-lg mb-6">Step 2: Select Plan</h2>
+          <h2 className="text-lg mb-6">Select Plan</h2>
 
           <div className="space-y-5">
             <div>
@@ -424,6 +439,31 @@ export default function AddMembership({ customers, plans, onBack, onSave }: AddM
                 )}
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Optional: Select Group */}
+        <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 p-6">
+          <h2 className="text-lg mb-6">Select Group</h2>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm mb-2">
+                Select Group
+              </label>
+              <select
+                value={formData.groupId || ''}
+                onChange={(e) => handleSelectGroup(e.target.value)}
+                className="w-full px-4 py-3 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+              >
+                <option value="">Choose a group (Optional)...</option>
+                {groups.map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
