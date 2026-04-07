@@ -69,7 +69,7 @@ interface Customer {
 const buildCustomersWithMemberships = () => {
   // Group memberships by customer
   const customerMap = new Map<string, Customer>();
-  
+
   mockMemberships.forEach(membership => {
     if (!customerMap.has(membership.customerId)) {
       const customerData = mockCustomers.find(c => c.id === membership.customerId);
@@ -105,7 +105,7 @@ const buildCustomersWithMemberships = () => {
       });
     }
   });
-  
+
   return Array.from(customerMap.values());
 };
 
@@ -121,7 +121,7 @@ export default function MembershipUsers() {
   const [isAddingCustomer, setIsAddingCustomer] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<CustomerFormData | null>(null);
   const [isAddingMembership, setIsAddingMembership] = useState(false);
-  
+
   // Filter states
   const [filters, setFilters] = useState({
     status: 'all',
@@ -186,9 +186,9 @@ export default function MembershipUsers() {
         customer.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
         customer.phone.includes(searchQuery) ||
         customer.membershipId.toLowerCase().includes(searchQuery.toLowerCase());
-      
+
       const matchesStatus = filters.status === 'all' || customer.status === filters.status;
-      
+
       const matchesPlan = filters.planName === 'all' || customer.planName === filters.planName;
 
       return matchesSearch && matchesStatus && matchesPlan;
@@ -313,8 +313,8 @@ export default function MembershipUsers() {
             className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg overflow-hidden hover:shadow-md hover:border-primary-300 dark:hover:border-primary-700 transition-all relative group"
           >
             <CustomerActionMenu customer={customer} />
-            
-            <div 
+
+            <div
               className="w-full h-32 bg-gradient-to-br from-primary-50 to-primary-100 dark:from-primary-950 dark:to-primary-900 flex items-center justify-center cursor-pointer"
               onClick={() => handleView(customer)}
             >
@@ -385,7 +385,7 @@ export default function MembershipUsers() {
             className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg p-4 hover:shadow-md hover:border-primary-300 dark:hover:border-primary-700 transition-all relative"
           >
             <div className="flex items-start gap-4">
-              <div 
+              <div
                 className="w-16 h-16 rounded-full bg-primary-100 dark:bg-primary-950/50 flex items-center justify-center flex-shrink-0 cursor-pointer"
                 onClick={() => handleView(customer)}
               >
@@ -480,7 +480,7 @@ export default function MembershipUsers() {
             const progressPercentage = calculateProgress(customer.installmentsPaid, customer.totalInstallments);
 
             return (
-              <tr 
+              <tr
                 key={customer.id}
                 className="hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors"
               >
@@ -678,17 +678,8 @@ export default function MembershipUsers() {
           addNewLabel="Add Customer"
           addNewIcon={Plus}
         />
-        
-        {/* Add Membership Button - Secondary action */}
-        <div className="px-6 pb-4">
-          <Button
-            onClick={handleAddMembership}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add Membership
-          </Button>
-        </div>
+
+
       </div>
 
       {/* Filters */}

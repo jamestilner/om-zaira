@@ -37,6 +37,7 @@ interface Plan {
   status: 'active' | 'inactive';
   createdAt: string;
   subscribers?: number;
+  complementaryInstallments?: number;
 }
 
 interface PlanManagementProps {
@@ -53,6 +54,7 @@ const mockPlans: Plan[] = [
     amount: 60000,
     installments: 12,
     amountPerInstallment: 5000,
+    complementaryInstallments: 0,
     status: 'active',
     createdAt: '2024-01-15',
     subscribers: 328,
@@ -65,6 +67,7 @@ const mockPlans: Plan[] = [
     amount: 36000,
     installments: 12,
     amountPerInstallment: 3000,
+    complementaryInstallments: 0,
     status: 'active',
     createdAt: '2024-01-20',
     subscribers: 142,
@@ -77,6 +80,7 @@ const mockPlans: Plan[] = [
     amount: 120000,
     installments: 12,
     amountPerInstallment: 10000,
+    complementaryInstallments: 0,
     status: 'active',
     createdAt: '2024-02-01',
     subscribers: 89,
@@ -89,6 +93,7 @@ const mockPlans: Plan[] = [
     amount: 240000,
     installments: 12,
     amountPerInstallment: 20000,
+    complementaryInstallments: 0,
     status: 'active',
     createdAt: '2024-02-10',
     subscribers: 45,
@@ -101,6 +106,7 @@ const mockPlans: Plan[] = [
     amount: 24000,
     installments: 12,
     amountPerInstallment: 2000,
+    complementaryInstallments: 0,
     status: 'inactive',
     createdAt: '2024-01-05',
     subscribers: 67,
@@ -182,14 +188,19 @@ export default function PlanManagement({ onNavigate }: PlanManagementProps) {
   };
 
   const handleSavePlan = (planData: any) => {
+    const api = parseFloat(planData.amountPerInstallment);
+    const inst = parseInt(planData.installments);
+    const cInst = parseInt(planData.complementaryInstallments) || 0;
+    
     const newPlan: Plan = {
       id: (plans.length + 1).toString(),
       uid: `PLN-${String(plans.length + 1).padStart(3, '0')}`,
       title: planData.title,
       description: planData.description,
-      amount: parseFloat(planData.amount),
-      installments: parseInt(planData.installments),
-      amountPerInstallment: parseFloat(planData.amount) / parseInt(planData.installments),
+      amount: api * (inst + cInst),
+      installments: inst,
+      amountPerInstallment: api,
+      complementaryInstallments: cInst,
       status: 'active',
       createdAt: new Date().toISOString().split('T')[0],
       subscribers: 0,
@@ -202,17 +213,23 @@ export default function PlanManagement({ onNavigate }: PlanManagementProps) {
 
   const handleUpdatePlan = (planId: string, planData: any) => {
     setPlans((prev) =>
-      prev.map((plan) =>
-        plan.id === planId
-          ? {
-              ...plan,
-              title: planData.title,
-              description: planData.description,
-              amount: parseFloat(planData.amount),
-              installments: parseInt(planData.installments),
-              amountPerInstallment: parseFloat(planData.amount) / parseInt(planData.installments),
-            }
-          : plan
+      prev.map((plan) => {
+        if (plan.id === planId) {
+          const api = parseFloat(planData.amountPerInstallment);
+          const inst = parseInt(planData.installments);
+          const cInst = parseInt(planData.complementaryInstallments) || 0;
+          return {
+            ...plan,
+            title: planData.title,
+            description: planData.description,
+            amount: api * (inst + cInst),
+            installments: inst,
+            amountPerInstallment: api,
+            complementaryInstallments: cInst,
+          };
+        }
+        return plan;
+      }
       )
     );
     setSelectedPlan(null);

@@ -26,7 +26,7 @@ interface PaymentHistoryItem {
   amount: number;
   date: string;
   paymentDate?: string;
-  method: 'UPI' | 'Card' | 'Cash';
+  method: 'UPI' | 'Card' | 'Cash' | 'Gift Card';
   status: 'paid' | 'pending' | 'failed';
   transactionId?: string;
   notes?: string;
@@ -70,7 +70,7 @@ interface Membership {
   totalPaid: number;
   remaining: number;
   paymentProgress: number;
-  status: 'active' | 'completed' | 'pending' | 'suspended';
+  status: 'active' | 'completed' | 'pending' | 'suspended' | 'Cancelled' | 'cancelled';
   nextPaymentDate: string;
   startDate: string;
   endDate: string;
@@ -79,6 +79,10 @@ interface Membership {
   duration?: number;
   purchaseHistory?: PurchaseRecord[];
   groupMembershipId?: string | null;
+  cancelledAt?: string;
+  cancelledBy?: string;
+  cancelRemarks?: string;
+  giftCardOffsetMonths?: number;
 }
 
 interface MembershipDetailProps {
@@ -99,11 +103,19 @@ export default function MembershipDetail({ membership: initialMembership, onClos
   const [showOfflinePurchaseModal, setShowOfflinePurchaseModal] = useState(false);
   const [showPurchaseDetailModal, setShowPurchaseDetailModal] = useState(false);
   const [showGiftCardModal, setShowGiftCardModal] = useState(false);
+  const [viewingGiftCardData, setViewingGiftCardData] = useState<{
+    amount: string,
+    installmentsToClear: number,
+    remarks: string,
+    differenceMethod: string,
+    differenceToPay: number,
+    totalRequired: number
+  } | null>(null);
   const [selectedPayment, setSelectedPayment] = useState<PaymentHistoryItem | null>(null);
   const [selectedPurchase, setSelectedPurchase] = useState<PurchaseRecord | null>(null);
   const [paymentForm, setPaymentForm] = useState({
     transactionId: '',
-    paymentMethod: 'UPI' as 'UPI' | 'Card' | 'Cash',
+    paymentMethod: 'UPI' as 'UPI' | 'Card' | 'Cash' | 'Gift Card',
     paymentDate: '',
     notes: '',
     attachments: [] as string[],
@@ -150,6 +162,11 @@ export default function MembershipDetail({ membership: initialMembership, onClos
       createdAt: '2026-02-01T13:00:00',
     }
   ]);
+
+  const [showEditMembershipModal, setShowEditMembershipModal] = useState(false);
+  const [showCancelMembershipModal, setShowCancelMembershipModal] = useState(false);
+  const [cancelRemarks, setCancelRemarks] = useState('');
+  const [selectedGroupCode, setSelectedGroupCode] = useState<string>('');
 
   // Offline Purchase Form State
   const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0]);
@@ -245,6 +262,8 @@ export default function MembershipDetail({ membership: initialMembership, onClos
       case 'pending':
         return 'outline';
       case 'suspended':
+      case 'Cancelled':
+      case 'cancelled':
         return 'destructive';
       default:
         return 'outline';
@@ -275,7 +294,64 @@ export default function MembershipDetail({ membership: initialMembership, onClos
   };
 
   const handleManageMembership = () => {
-    toast.info('Manage Membership functionality coming soon');
+    let currentGroupId = '';
+    if (membership.groupMembershipId) {
+       const code = membership.groupMembershipId.split('-')[0];
+       const foundGroup = mockGroups.find(g => g.code === code);
+       if (foundGroup) currentGroupId = foundGroup.id;
+    }
+    setSelectedGroupCode(currentGroupId);
+    setShowEditMembershipModal(true);
+  };
+
+  const handleSaveMembershipEdit = () => {
+   let newGroupMembershipId = membership.groupMembershipId;
+   
+   if (selectedGroupCode) {
+      const group = mockGroups.find(g => g.id === selectedGroupCode);
+      if (group) {
+        if (!membership.groupMembershipId?.startsWith(group.code)) {
+            const sequence = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+            const position = group.currentMembers + 1;
+            newGroupMembershipId = `${group.code}-${sequence}/${position}`;
+        }
+      }
+   } else {
+      newGroupMembershipId = null;
+   }
+
+   const updatedMembership: Membership = {
+       ...membership,
+       groupMembershipId: newGroupMembershipId
+   };
+   
+   setMembership(updatedMembership);
+   if (onUpdate) onUpdate(updatedMembership);
+   
+   toast.success('Membership updated successfully');
+   setShowEditMembershipModal(false);
+  };
+
+  const handleConfirmCancelMembership = () => {
+    if (!cancelRemarks) {
+        toast.error('Cancellation remarks are required');
+        return;
+    }
+
+    const updatedMembership: Membership = {
+        ...membership,
+        status: 'Cancelled',
+        cancelRemarks,
+        cancelledAt: new Date().toISOString(),
+        cancelledBy: 'John Doe',
+    };
+
+    setMembership(updatedMembership);
+    if (onUpdate) onUpdate(updatedMembership);
+
+    toast.success('Membership cancelled successfully');
+    setShowCancelMembershipModal(false);
+    setCancelRemarks('');
   };
 
   const handleDownloadReceipt = (payment: PaymentHistoryItem) => {
@@ -531,6 +607,7 @@ export default function MembershipDetail({ membership: initialMembership, onClos
     const installments: PaymentHistoryItem[] = [];
     const startDate = new Date(membership.startDate);
     const currentEMI = membership.monthlyEMI || (membership.planAmount / membership.totalInstallments);
+    const offset = membership.giftCardOffsetMonths || 0;
 
     // Create a map of existing payment history for quick lookup
     const paymentMap = new Map(
@@ -547,7 +624,8 @@ export default function MembershipDetail({ membership: initialMembership, onClos
       } else {
         // Generate pending installment
         const installmentDate = new Date(startDate);
-        installmentDate.setMonth(startDate.getMonth() + (i - 1));
+        // Shift dates early by giftCardOffsetMonths
+        installmentDate.setMonth(startDate.getMonth() + (i - 1) - offset);
 
         installments.push({
           installmentNumber: i,
@@ -577,17 +655,9 @@ export default function MembershipDetail({ membership: initialMembership, onClos
       return 0;
     };
 
-    // Sort by Date (increasing order), prioritize offline adjustments in a tie
+    // Sort by Title (Installment Number)
     installments.sort((a, b) => {
-      const timeDiff = parseDateForSort(a.date) - parseDateForSort(b.date);
-      if (timeDiff === 0) {
-        const aIsDiff = a.installmentNumber > membership.totalInstallments;
-        const bIsDiff = b.installmentNumber > membership.totalInstallments;
-        if (aIsDiff && !bIsDiff) return -1;
-        if (!aIsDiff && bIsDiff) return 1;
-        return (a.installmentNumber as number) - (b.installmentNumber as number);
-      }
-      return timeDiff;
+      return (a.installmentNumber as number) - (b.installmentNumber as number);
     });
 
     return installments;
@@ -628,19 +698,32 @@ export default function MembershipDetail({ membership: initialMembership, onClos
     let updatedTotalPaid = membership.totalPaid;
     let updatedInstallmentsPaid = membership.installmentsPaid;
 
+    const lastTargetInstallment = giftCardPreview.targetInstallments[giftCardPreview.targetInstallments.length - 1];
+
     giftCardPreview.targetInstallments.forEach((inst) => {
       const existingPaymentIndex = updatedPaymentHistory.findIndex(
         p => p.installmentNumber === inst.installmentNumber
       );
 
-      const noteText = `Paid via Gift Card (₹${amount})` + (giftCardPreview.differenceToPay > 0 ? ` + ${giftCardForm.differenceMethod} (₹${giftCardPreview.differenceToPay})` : '') + (giftCardForm.remarks ? ` - ${giftCardForm.remarks}` : '');
+      const isLast = inst.installmentNumber === lastTargetInstallment.installmentNumber;
+      let noteText = `Paid via Gift Card`;
+      if (isLast) {
+        noteText += ` (Total: ₹${amount})`;
+        if (giftCardPreview.differenceToPay > 0) {
+          noteText += ` + ${giftCardForm.differenceMethod} (₹${giftCardPreview.differenceToPay})`;
+        }
+        if (giftCardForm.remarks) {
+          noteText += ` - ${giftCardForm.remarks}`;
+        }
+      }
 
+      const currentDate = new Date().toISOString().split('T')[0];
       const paymentDetail: PaymentHistoryItem = {
         installmentNumber: inst.installmentNumber,
         amount: inst.amount,
         date: inst.date,
-        paymentDate: new Date().toISOString().split('T')[0],
-        method: giftCardForm.differenceMethod, 
+        paymentDate: currentDate,
+        method: 'Gift Card', 
         status: 'paid',
         notes: noteText
       };
@@ -661,6 +744,9 @@ export default function MembershipDetail({ membership: initialMembership, onClos
     const updatedRemaining = membership.planAmount - updatedTotalPaid;
     const updatedPaymentProgress = Math.round((updatedTotalPaid / membership.planAmount) * 100);
 
+    const currentOffset = membership.giftCardOffsetMonths || 0;
+    const additionalOffset = giftCardPreview.installmentsToClear > 1 ? giftCardPreview.installmentsToClear - 1 : 0;
+
     const updatedMembership: Membership = {
       ...membership,
       paymentHistory: updatedPaymentHistory,
@@ -668,6 +754,7 @@ export default function MembershipDetail({ membership: initialMembership, onClos
       installmentsPaid: updatedInstallmentsPaid,
       remaining: updatedRemaining,
       paymentProgress: updatedPaymentProgress,
+      giftCardOffsetMonths: currentOffset + additionalOffset,
     };
 
     setMembership(updatedMembership);
@@ -684,6 +771,54 @@ export default function MembershipDetail({ membership: initialMembership, onClos
       remarks: '',
       differenceMethod: 'UPI'
     });
+  };
+
+  const handleViewGiftCard = (payment: PaymentHistoryItem) => {
+    const relatedInstallments = membership.paymentHistory.filter(
+      p => p.paymentDate === payment.paymentDate && p.method === 'Gift Card'
+    );
+    const installmentsToClear = relatedInstallments.length > 0 ? relatedInstallments.length : 1;
+    const totalRequired = relatedInstallments.reduce((sum, p) => sum + p.amount, 0);
+
+    const lastInst = relatedInstallments.length > 0 ? relatedInstallments[relatedInstallments.length - 1] : payment;
+    const fullNotes = lastInst.notes || '';
+
+    let amount = String(totalRequired);
+    let diffMethod = 'UPI';
+    let diffToPay = 0;
+    
+    const totalMatch = fullNotes.match(/\(Total: ₹([\d.]+)\)/);
+    if (totalMatch) amount = totalMatch[1];
+    
+    const diffMatch = fullNotes.match(/\+ (UPI|Card|Cash) \(₹([\d.]+)\)/);
+    if (diffMatch) {
+      diffMethod = diffMatch[1];
+      diffToPay = parseFloat(diffMatch[2]);
+    }
+    
+    let parsedRemarks = '';
+    const parts = fullNotes.split(' - ');
+    if (parts.length > 1) {
+      parsedRemarks = parts.slice(1).join(' - ');
+    }
+
+    setGiftCardForm({
+      amount,
+      installmentsToClear,
+      remarks: parsedRemarks,
+      differenceMethod: diffMethod as any,
+    });
+    
+    setViewingGiftCardData({
+      amount,
+      installmentsToClear,
+      remarks: parsedRemarks,
+      differenceMethod: diffMethod,
+      differenceToPay: diffToPay,
+      totalRequired,
+    });
+
+    setShowGiftCardModal(true);
   };
 
   const handleAssignGroup = (group: GroupItem) => {
@@ -831,6 +966,16 @@ export default function MembershipDetail({ membership: initialMembership, onClos
                     </Button>
                   </div>
                 )}
+                {(membership.status === 'Cancelled' || membership.status === 'cancelled') && membership.cancelledAt && (
+                   <div className="mt-4 p-4 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg">
+                     <h4 className="text-sm font-medium text-red-800 dark:text-red-400 mb-2">Cancellation Remarks</h4>
+                     <div className="space-y-2 text-xs text-red-700 dark:text-red-300">
+                        <div><span className="font-medium">Date & Time:</span> {new Date(membership.cancelledAt).toLocaleString('en-GB')}</div>
+                        <div><span className="font-medium">Cancelled By:</span> {membership.cancelledBy}</div>
+                        <div><span className="font-medium">Remarks:</span> {membership.cancelRemarks}</div>
+                     </div>
+                   </div>
+                )}
               </div>
             </div>
           </div>
@@ -945,10 +1090,10 @@ export default function MembershipDetail({ membership: initialMembership, onClos
               <thead className="bg-neutral-50 dark:bg-neutral-800 border-y border-neutral-200 dark:border-neutral-700">
                 <tr>
                   <th className="text-left px-6 py-3 text-xs font-medium text-neutral-600 dark:text-neutral-300">
-                    Date
+                    Title
                   </th>
                   <th className="text-left px-6 py-3 text-xs font-medium text-neutral-600 dark:text-neutral-300">
-                    Title
+                    Date
                   </th>
                   <th className="text-left px-6 py-3 text-xs font-medium text-neutral-600 dark:text-neutral-300">
                     Amount
@@ -976,13 +1121,13 @@ export default function MembershipDetail({ membership: initialMembership, onClos
                     key={payment.installmentNumber}
                     className="hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors"
                   >
-                    <td className="px-6 py-4 text-sm">
-                      {formatDate(payment.date)}
-                    </td>
                     <td className="px-6 py-4 text-sm font-medium">
                       {payment.installmentNumber > membership.totalInstallments
                         ? 'Difference Amount'
                         : `Installment #${payment.installmentNumber}`}
+                    </td>
+                    <td className="px-6 py-4 text-sm">
+                      {formatDate(payment.date)}
                     </td>
                     <td className="px-6 py-4 text-sm">
                       {formatCurrency(payment.amount)}
@@ -1016,15 +1161,27 @@ export default function MembershipDetail({ membership: initialMembership, onClos
                     </td>
                     <td className="px-6 py-4">
                       {payment.status === 'paid' ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDownloadReceipt(payment)}
-                          className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
-                        >
-                          <Download className="w-4 h-4 mr-1.5" />
-                          Download Receipt
-                        </Button>
+                        payment.method === 'Gift Card' ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewGiftCard(payment)}
+                            className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300"
+                          >
+                            <Eye className="w-4 h-4 mr-1.5" />
+                            View Details
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDownloadReceipt(payment)}
+                            className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+                          >
+                            <Download className="w-4 h-4 mr-1.5" />
+                            Download Receipt
+                          </Button>
+                        )
                       ) : (
                         <Button
                           variant="ghost"
@@ -1682,26 +1839,34 @@ export default function MembershipDetail({ membership: initialMembership, onClos
       {/* Gift Card Modal */}
       {showGiftCardModal && (
         <FormModal
-          title="Apply Gift Card"
-          description="Redeem a gift card towards upcoming pending installments"
+          title={viewingGiftCardData ? "Gift Card Details" : "Apply Gift Card"}
+          description={viewingGiftCardData ? "View details of redeemed gift card" : "Redeem a gift card towards upcoming pending installments"}
           isOpen={showGiftCardModal}
-          onClose={() => setShowGiftCardModal(false)}
+          onClose={() => {
+            setShowGiftCardModal(false);
+            setViewingGiftCardData(null);
+          }}
           maxWidth="max-w-xl"
           footer={
             <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setShowGiftCardModal(false)}
+                onClick={() => {
+                  setShowGiftCardModal(false);
+                  setViewingGiftCardData(null);
+                }}
               >
-                Cancel
+                {viewingGiftCardData ? 'Close' : 'Cancel'}
               </Button>
-              <Button
-                type="button"
-                onClick={handleSubmitGiftCard}
-              >
-                Confirm Redemption
-              </Button>
+              {!viewingGiftCardData && (
+                <Button
+                  type="button"
+                  onClick={handleSubmitGiftCard}
+                >
+                  Confirm Redemption
+                </Button>
+              )}
             </div>
           }
         >
@@ -1715,6 +1880,7 @@ export default function MembershipDetail({ membership: initialMembership, onClos
                   min="1"
                   value={giftCardForm.amount}
                   onChange={(e) => setGiftCardForm({ ...giftCardForm, amount: e.target.value })}
+                  disabled={!!viewingGiftCardData}
                 />
               </FormField>
 
@@ -1723,15 +1889,16 @@ export default function MembershipDetail({ membership: initialMembership, onClos
                 <FormInput
                   type="number"
                   min="1"
-                  max={pendingInstallments.length}
+                  max={viewingGiftCardData ? viewingGiftCardData.installmentsToClear : pendingInstallments.length}
                   value={giftCardForm.installmentsToClear}
                   onChange={(e) => {
                     let val = parseInt(e.target.value);
                     if (isNaN(val) || val < 1) val = 1;
                     setGiftCardForm({ ...giftCardForm, installmentsToClear: val });
                   }}
+                  disabled={!!viewingGiftCardData}
                 />
-                <p className="text-xs text-neutral-500 mt-1">Pending: {pendingInstallments.length}</p>
+                {!viewingGiftCardData && <p className="text-xs text-neutral-500 mt-1">Pending: {pendingInstallments.length}</p>}
               </FormField>
             </div>
 
@@ -1742,6 +1909,7 @@ export default function MembershipDetail({ membership: initialMembership, onClos
                 placeholder="Optional notes"
                 value={giftCardForm.remarks}
                 onChange={(e) => setGiftCardForm({ ...giftCardForm, remarks: e.target.value })}
+                disabled={!!viewingGiftCardData}
               />
             </FormField>
 
@@ -1749,25 +1917,34 @@ export default function MembershipDetail({ membership: initialMembership, onClos
               <h4 className="text-sm font-medium text-indigo-900 dark:text-indigo-100 mb-3">Redemption Summary</h4>
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-indigo-700 dark:text-indigo-300">Clearing Installments (x{giftCardPreview.installmentsToClear}):</span>
-                  <span className="font-medium text-indigo-900 dark:text-indigo-100">{formatCurrency(giftCardPreview.totalRequired)}</span>
+                  <span className="text-indigo-700 dark:text-indigo-300">
+                    Clearing Installments (x{viewingGiftCardData ? viewingGiftCardData.installmentsToClear : giftCardPreview.installmentsToClear}):
+                  </span>
+                  <span className="font-medium text-indigo-900 dark:text-indigo-100">
+                    {formatCurrency(viewingGiftCardData ? viewingGiftCardData.totalRequired : giftCardPreview.totalRequired)}
+                  </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-indigo-700 dark:text-indigo-300">Gift Card Used:</span>
-                  <span className="font-medium text-indigo-900 dark:text-indigo-100">- {formatCurrency(parseFloat(giftCardForm.amount as string) || 0)}</span>
+                  <span className="font-medium text-indigo-900 dark:text-indigo-100">
+                    - {formatCurrency(parseFloat(giftCardForm.amount as string) || 0)}
+                  </span>
                 </div>
                 <div className="flex justify-between text-base font-semibold pt-2 border-t border-indigo-200 dark:border-indigo-800">
                   <span className="text-indigo-900 dark:text-indigo-100">Difference to Pay:</span>
-                  <span className="text-indigo-900 dark:text-indigo-100">{formatCurrency(giftCardPreview.differenceToPay)}</span>
+                  <span className="text-indigo-900 dark:text-indigo-100">
+                    {formatCurrency(viewingGiftCardData ? viewingGiftCardData.differenceToPay : giftCardPreview.differenceToPay)}
+                  </span>
                 </div>
               </div>
 
-              {giftCardPreview.differenceToPay > 0 && (
+              {(viewingGiftCardData ? viewingGiftCardData.differenceToPay > 0 : giftCardPreview.differenceToPay > 0) && (
                 <div className="mt-4 pt-4 border-t border-indigo-200 dark:border-indigo-800">
                   <FormLabel className="text-indigo-900 dark:text-indigo-100">Difference Payment Method</FormLabel>
                   <FormSelect
                     value={giftCardForm.differenceMethod}
                     onChange={(e) => setGiftCardForm({ ...giftCardForm, differenceMethod: e.target.value as any })}
+                    disabled={!!viewingGiftCardData}
                   >
                     <option value="UPI">UPI</option>
                     <option value="Card">Card</option>
@@ -1834,6 +2011,76 @@ export default function MembershipDetail({ membership: initialMembership, onClos
           </table>
         </div>
       </FormModal>
+
+      {/* Edit Membership Modal */}
+      {showEditMembershipModal && (
+        <FormModal
+          isOpen={showEditMembershipModal}
+          onClose={() => setShowEditMembershipModal(false)}
+          title="Edit Membership"
+          description="Update membership group."
+          maxWidth="max-w-md"
+          footer={
+            <div className="flex justify-between w-full">
+              <Button 
+                 type="button" 
+                 variant="destructive" 
+                 onClick={() => {
+                    setShowEditMembershipModal(false);
+                    setShowCancelMembershipModal(true);
+                 }}
+              >
+                 Cancel Membership
+              </Button>
+              <div className="flex gap-3">
+                <Button type="button" variant="outline" onClick={() => setShowEditMembershipModal(false)}>Back</Button>
+                <Button type="button" onClick={handleSaveMembershipEdit}>Save</Button>
+              </div>
+            </div>
+          }
+        >
+           <FormField>
+             <FormLabel>Group</FormLabel>
+             <FormSelect 
+               value={selectedGroupCode} 
+               onChange={(e) => setSelectedGroupCode(e.target.value)}
+             >
+               <option value="">No Group</option>
+               {mockGroups.map(g => (
+                 <option key={g.id} value={g.id}>{g.name} ({g.code})</option>
+               ))}
+             </FormSelect>
+           </FormField>
+        </FormModal>
+      )}
+
+      {/* Cancel Membership Confirmation Modal */}
+      {showCancelMembershipModal && (
+        <FormModal
+          isOpen={showCancelMembershipModal}
+          onClose={() => setShowCancelMembershipModal(false)}
+          title="Cancel Membership"
+          description="Are you sure you want to cancel this membership? Please provide cancellation remarks."
+          maxWidth="max-w-md"
+          footer={
+            <div className="flex justify-end gap-3 w-full">
+               <Button type="button" variant="outline" onClick={() => setShowCancelMembershipModal(false)}>Back</Button>
+               <Button type="button" variant="destructive" onClick={handleConfirmCancelMembership}>Confirm Cancel</Button>
+            </div>
+          }
+        >
+          <FormField>
+            <FormLabel required>Cancellation Remarks</FormLabel>
+            <textarea
+              className="w-full px-4 py-2 text-sm border border-neutral-200 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 resize-none"
+              rows={4}
+              value={cancelRemarks}
+              onChange={(e) => setCancelRemarks(e.target.value)}
+              placeholder="Enter reason for cancellation..."
+            />
+          </FormField>
+        </FormModal>
+      )}
     </div>
   );
 }

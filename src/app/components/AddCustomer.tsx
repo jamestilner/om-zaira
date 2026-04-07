@@ -20,6 +20,8 @@ export interface CustomerFormData {
   state: string;
   city: string;
   area: string;
+  birthday?: string;
+  anniversary?: string;
 }
 
 interface AddCustomerProps {
@@ -39,6 +41,8 @@ export default function AddCustomer({ customer, onBack, onSave }: AddCustomerPro
     state: customer?.state || '',
     city: customer?.city || '',
     area: customer?.area || '',
+    birthday: customer?.birthday || '',
+    anniversary: customer?.anniversary || '',
   });
 
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -245,6 +249,34 @@ export default function AddCustomer({ customer, onBack, onSave }: AddCustomerPro
               <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                 Format: +91 XXXXXXXXXX or XXXXXXXXXX
               </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-5">
+              {/* Birthday */}
+              <div>
+                <label className="block text-sm mb-2">
+                  Birthday <span className="text-neutral-400 text-xs font-normal ml-1">(Optional)</span>
+                </label>
+                <input
+                  type="date"
+                  value={formData.birthday}
+                  onChange={(e) => handleInputChange('birthday', e.target.value)}
+                  className="w-full px-4 py-3 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                />
+              </div>
+
+              {/* Anniversary */}
+              <div>
+                <label className="block text-sm mb-2">
+                  Anniversary <span className="text-neutral-400 text-xs font-normal ml-1">(Optional)</span>
+                </label>
+                <input
+                  type="date"
+                  value={formData.anniversary}
+                  onChange={(e) => handleInputChange('anniversary', e.target.value)}
+                  className="w-full px-4 py-3 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                />
+              </div>
             </div>
           </div>
         </div>

@@ -170,7 +170,7 @@ export default function AdminUsersManagement() {
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [editingAdmin, setEditingAdmin] = useState<AdminUser | null>(null);
   const [adminUsers, setAdminUsers] = useState<AdminUser[]>(mockAdminUsers);
-  
+
   // Admin form state
   const [adminForm, setAdminForm] = useState({
     name: '',
@@ -179,7 +179,7 @@ export default function AdminUsersManagement() {
     status: 'active' as 'active' | 'inactive',
     password: '',
   });
-  
+
   // Filter states
   const [filters, setFilters] = useState({
     status: 'all',
@@ -195,9 +195,9 @@ export default function AdminUsersManagement() {
         user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
         user.uid.toLowerCase().includes(searchQuery.toLowerCase());
-      
+
       const matchesStatus = filters.status === 'all' || user.status === filters.status;
-      
+
       const matchesRole = filters.role === 'all' || user.role === filters.role;
 
       return matchesSearch && matchesStatus && matchesRole;
@@ -295,8 +295,8 @@ export default function AdminUsersManagement() {
             className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg overflow-hidden hover:shadow-md hover:border-primary-300 dark:hover:border-primary-700 transition-all relative group"
           >
             <AdminActionMenu user={user} />
-            
-            <div 
+
+            <div
               className="w-full h-32 bg-gradient-to-br from-primary-50 to-primary-100 dark:from-primary-950 dark:to-primary-900 flex items-center justify-center cursor-pointer"
               onClick={() => handleEdit(user)}
             >
@@ -361,7 +361,7 @@ export default function AdminUsersManagement() {
             className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg p-4 hover:shadow-md hover:border-primary-300 dark:hover:border-primary-700 transition-all relative"
           >
             <div className="flex items-start gap-4">
-              <div 
+              <div
                 className="w-16 h-16 rounded-full bg-primary-100 dark:bg-primary-950/50 flex items-center justify-center flex-shrink-0 cursor-pointer"
                 onClick={() => handleEdit(user)}
               >
@@ -453,7 +453,7 @@ export default function AdminUsersManagement() {
             const config = roleConfig[user.role];
 
             return (
-              <tr 
+              <tr
                 key={user.id}
                 className="hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors"
               >

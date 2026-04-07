@@ -14,6 +14,7 @@ import {
   CreditCard,
   Shield,
   MessageSquare,
+  FileBarChart,
 } from "lucide-react";
 
 export interface SubMenuItem {
@@ -44,6 +45,7 @@ export const getNavigationData = (
       onClick: () => onNavigate("dashboard"),
       active: currentPage === "dashboard",
     },
+    /*
     {
       id: "hb-templates",
       label: "HB Templates",
@@ -63,6 +65,7 @@ export const getNavigationData = (
         },
       ],
     },
+    */
     {
       id: "products",
       label: "Products",
@@ -98,6 +101,7 @@ export const getNavigationData = (
       onClick: () => onNavigate("customers"),
       active: currentPage === "customers",
     },
+    /*
     {
       id: "comments",
       label: "Comments",
@@ -105,12 +109,38 @@ export const getNavigationData = (
       onClick: () => onNavigate("comments"),
       active: currentPage === "comments",
     },
+    */
     {
       id: "groups",
       label: "Groups",
       icon: Layers,
       onClick: () => onNavigate("groups"),
       active: currentPage === "groups",
+    },
+    {
+      id: "reports",
+      label: "Reports",
+      icon: FileBarChart,
+      subItems: [
+        {
+          id: "transaction-report",
+          label: "Transaction Report",
+          onClick: () => onNavigate("transaction-report"),
+          active: currentPage === "transaction-report",
+        },
+        {
+          id: "daily-collection-report",
+          label: "Daily Collection Report",
+          onClick: () => onNavigate("daily-collection-report"),
+          active: currentPage === "daily-collection-report",
+        },
+        {
+          id: "offline-purchase-report",
+          label: "Offline Purchase Report",
+          onClick: () => onNavigate("offline-purchase-report"),
+          active: currentPage === "offline-purchase-report",
+        },
+      ],
     },
     {
       id: "admin-management",

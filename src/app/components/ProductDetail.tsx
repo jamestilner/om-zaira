@@ -26,7 +26,6 @@ interface Product {
   description: string;
   images: string[];
   status: 'active' | 'inactive';
-  availability?: 'In Stock' | 'Sold out';
   createdAt: string;
   category?: string;
 }
@@ -37,7 +36,6 @@ interface ProductUpdateData {
   sku: string;
   images: string[];
   status: 'active' | 'inactive';
-  availability: 'In Stock' | 'Sold out';
 }
 
 interface ProductDetailProps {
@@ -51,7 +49,6 @@ export default function ProductDetail({ product, onBack, onSave }: ProductDetail
   const [sku, setSku] = useState(product.sku || '');
   const [productCategory, setProductCategory] = useState(product.category || '');
   const [status, setStatus] = useState<'active' | 'inactive'>(product.status || 'active');
-  const [availability, setAvailability] = useState<'In Stock' | 'Sold out'>(product.availability || 'In Stock');
   const [createdDate] = useState(product.createdAt);
   const [lastUpdated] = useState(new Date().toLocaleString('en-GB', {
     day: '2-digit',
@@ -182,7 +179,6 @@ export default function ProductDetail({ product, onBack, onSave }: ProductDetail
       sku: sku,
       images: images.map(img => img.url),
       status: status,
-      availability: availability,
     };
 
     onSave(product.id, productData);
@@ -299,38 +295,8 @@ export default function ProductDetail({ product, onBack, onSave }: ProductDetail
                 />
               </div>
 
-              {/* 3. Availability and Status Pills */}
+              {/* 3. Status Pills */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                    Availability
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setAvailability('In Stock')}
-                      className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
-                        availability === 'In Stock'
-                          ? 'bg-primary-50 text-primary-700 border-primary-200 dark:bg-primary-950/50 dark:text-primary-400 dark:border-primary-800'
-                          : 'bg-white text-neutral-600 border-neutral-200 hover:bg-neutral-50 dark:bg-neutral-950 dark:text-neutral-400 dark:border-neutral-800 dark:hover:bg-neutral-900'
-                      }`}
-                    >
-                      In Stock
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAvailability('Sold out')}
-                      className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
-                        availability === 'Sold out'
-                          ? 'bg-error-50 text-error-700 border-error-200 dark:bg-error-950/50 dark:text-error-400 dark:border-error-800'
-                          : 'bg-white text-neutral-600 border-neutral-200 hover:bg-neutral-50 dark:bg-neutral-950 dark:text-neutral-400 dark:border-neutral-800 dark:hover:bg-neutral-900'
-                      }`}
-                    >
-                      Sold out
-                    </button>
-                  </div>
-                </div>
-
                 <div>
                   <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                     Status

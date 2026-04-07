@@ -14,8 +14,6 @@ import {
   Calendar,
   ArrowUpRight,
   ArrowDownRight,
-  Gift,
-  Heart,
   CheckCircle2,
   AlertCircle,
   XCircle,
@@ -238,38 +236,7 @@ const failedPayments = allPaymentsData.filter(p => p.status === 'failed');
 const totalCollected = paidPayments.reduce((sum, p) => sum + p.amount, 0);
 const totalPending = pendingPayments.reduce((sum, p) => sum + p.amount, 0);
 
-const upcomingBirthdaysData = mockCustomers
-  .filter(c => c.dob)
-  .map(c => ({
-    id: c.id,
-    customerName: c.name,
-    dob: c.dob!,
-    daysLeft: getDaysLeft(c.dob!)
-  }))
-  .sort((a, b) => a.daysLeft - b.daysLeft)
-  .slice(0, 7);
 
-const upcomingAnniversariesData = mockCustomers
-  .filter(c => c.anniversaryDate)
-  .map(c => {
-    const [year] = c.anniversaryDate!.split('-');
-    const today = new Date();
-    const [_, month, day] = c.anniversaryDate!.split('-').map(Number);
-    let targetYear = today.getFullYear();
-    const thisYearAnn = new Date(targetYear, month - 1, day);
-    if (thisYearAnn.getTime() < new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()) {
-      targetYear++;
-    }
-    return {
-      id: c.id,
-      customerName: c.name,
-      anniversaryDate: c.anniversaryDate!,
-      yearsCompleted: targetYear - parseInt(year),
-      daysLeft: getDaysLeft(c.anniversaryDate!)
-    };
-  })
-  .sort((a, b) => a.daysLeft - b.daysLeft)
-  .slice(0, 7);
 
 const getPaymentStatusBadge = (status: string) => {
   switch (status) {
@@ -392,72 +359,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Birthdays & Anniversaries - Side by Side */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        {/* Birthdays */}
-        <div className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg overflow-hidden">
-          <div className="px-6 py-4 border-b border-neutral-200 dark:border-neutral-800 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-950/50 flex items-center justify-center">
-              <Gift className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">Upcoming Birthdays</h2>
-              <p className="text-sm text-neutral-600 dark:text-neutral-400">Next 7 birthdays</p>
-            </div>
-          </div>
-          <ul className="divide-y divide-neutral-200 dark:divide-neutral-800">
-            {upcomingBirthdaysData.map((item) => (
-              <li key={item.id} className="px-6 py-3 hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-neutral-900 dark:text-white">{item.customerName}</p>
-                  <p className="text-xs text-neutral-600 dark:text-neutral-400">{formatDate(item.dob)}</p>
-                </div>
-                <div className="text-right">
-                  <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-400">
-                    {item.daysLeft === 0 ? 'Today!' : `${item.daysLeft} days`}
-                  </span>
-                </div>
-              </li>
-            ))}
-            {upcomingBirthdaysData.length === 0 && (
-              <li className="px-6 py-6 text-center text-sm text-neutral-500 dark:text-neutral-400">No upcoming birthdays</li>
-            )}
-          </ul>
-        </div>
 
-        {/* Anniversaries */}
-        <div className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg overflow-hidden">
-          <div className="px-6 py-4 border-b border-neutral-200 dark:border-neutral-800 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-pink-50 dark:bg-pink-950/50 flex items-center justify-center">
-              <Heart className="w-5 h-5 text-pink-600 dark:text-pink-400" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">Upcoming Anniversaries</h2>
-              <p className="text-sm text-neutral-600 dark:text-neutral-400">Next 7 anniversaries</p>
-            </div>
-          </div>
-          <ul className="divide-y divide-neutral-200 dark:divide-neutral-800">
-            {upcomingAnniversariesData.map((item) => (
-              <li key={item.id} className="px-6 py-3 hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-neutral-900 dark:text-white">{item.customerName}</p>
-                  <p className="text-xs text-neutral-600 dark:text-neutral-400">
-                    {formatDate(item.anniversaryDate)} &bull; {item.yearsCompleted} {item.yearsCompleted === 1 ? 'Year' : 'Years'}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-pink-50 text-pink-700 dark:bg-pink-950/50 dark:text-pink-400">
-                    {item.daysLeft === 0 ? 'Today!' : `${item.daysLeft} days`}
-                  </span>
-                </div>
-              </li>
-            ))}
-            {upcomingAnniversariesData.length === 0 && (
-              <li className="px-6 py-6 text-center text-sm text-neutral-500 dark:text-neutral-400">No upcoming anniversaries</li>
-            )}
-          </ul>
-        </div>
-      </div>
 
       {/* Recent Activity Panel */}
       <div className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg">

@@ -6,7 +6,7 @@
  */
 
 import { useState } from 'react';
-import { Save, ChevronLeft, Search, X } from 'lucide-react';
+import { Save, ChevronLeft, Search, X, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { PrimaryButton, SecondaryButton } from './hb/listing';
 import { FormModal, FormFooter } from './hb/common/Form';
@@ -42,6 +42,7 @@ interface MembershipFormData {
   planId: string;
   groupId?: string;
   customPlan?: CustomPlanData;
+  aliasName?: string;
 }
 
 interface Group {
@@ -62,6 +63,7 @@ export default function AddMembership({ customers, plans, groups = [], onBack, o
     customerId: '',
     planId: '',
     groupId: '',
+    aliasName: '',
   });
 
   const [customPlanData, setCustomPlanData] = useState<CustomPlanData>({
@@ -75,17 +77,41 @@ export default function AddMembership({ customers, plans, groups = [], onBack, o
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
+  const [newCustomerForm, setNewCustomerForm] = useState({ name: '', email: '', phone: '' });
+  const [localCustomers, setLocalCustomers] = useState<Customer[]>([]);
+
+  const allCustomers = [...customers, ...localCustomers];
+
   // Get selected customer and plan
-  const selectedCustomer = customers.find(c => c.id === formData.customerId);
+  const selectedCustomer = allCustomers.find(c => c.id === formData.customerId);
   const selectedPlan = plans.find(p => p.id === formData.planId);
   const isCustomPlan = formData.planId === 'custom';
 
   // Filter customers based on search
-  const filteredCustomers = customers.filter(customer =>
+  const filteredCustomers = allCustomers.filter(customer =>
     customer.name.toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
     customer.email.toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
     customer.id.toLowerCase().includes(customerSearchQuery.toLowerCase())
   );
+
+  const handleAddNewCustomer = () => {
+    if (!newCustomerForm.name || !newCustomerForm.phone) {
+      toast.error('Name and phone are required');
+      return;
+    }
+    const newCustomer = {
+      id: `C${Math.floor(Math.random() * 10000)}`,
+      name: newCustomerForm.name,
+      email: newCustomerForm.email,
+      phone: newCustomerForm.phone,
+    };
+    setLocalCustomers(prev => [...prev, newCustomer]);
+    setFormData(prev => ({ ...prev, customerId: newCustomer.id }));
+    setShowAddCustomerModal(false);
+    setNewCustomerForm({ name: '', email: '', phone: '' });
+    toast.success('Customer added successfully');
+  };
 
   const handleSelectCustomer = (customer: Customer) => {
     setFormData(prev => ({ ...prev, customerId: customer.id }));
@@ -171,6 +197,7 @@ export default function AddMembership({ customers, plans, groups = [], onBack, o
       planId: formData.planId,
       ...(formData.groupId && { groupId: formData.groupId }),
       ...(isCustomPlan && { customPlan: customPlanData }),
+      ...(formData.aliasName && { aliasName: formData.aliasName }),
     };
 
     onSave(membershipData);
@@ -211,9 +238,19 @@ export default function AddMembership({ customers, plans, groups = [], onBack, o
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm mb-2">
-                Select Customer <span className="text-red-500">*</span>
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm">
+                  Select Customer <span className="text-red-500">*</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowAddCustomerModal(true)}
+                  className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 flex items-center gap-1 font-medium"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Customer
+                </button>
+              </div>
 
               {!selectedCustomer ? (
                 <div className="relative">
@@ -281,6 +318,22 @@ export default function AddMembership({ customers, plans, groups = [], onBack, o
                 <p className="text-xs text-red-500 mt-1">{errors.customerId}</p>
               )}
             </div>
+
+            {/* Alias Name Field */}
+            {selectedCustomer && (
+              <div className="pt-4 border-t border-neutral-200 dark:border-neutral-800 mt-4">
+                <label className="block text-sm mb-2">
+                  Alias Name (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={formData.aliasName || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, aliasName: e.target.value }))}
+                  placeholder="e.g. Wife's Name if purchasing on behalf"
+                  className="w-full px-4 py-3 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                />
+              </div>
+            )}
           </div>
         </div>
 
@@ -499,6 +552,11 @@ export default function AddMembership({ customers, plans, groups = [], onBack, o
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
                   {selectedCustomer?.email}
                 </p>
+                {formData.aliasName && (
+                  <p className="text-xs text-neutral-600 dark:text-neutral-300 mt-1">
+                    <span className="font-medium text-neutral-500 dark:text-neutral-400">Alias:</span> {formData.aliasName}
+                  </p>
+                )}
               </div>
 
               <div className="border-t border-neutral-200 dark:border-neutral-700 pt-3">
@@ -533,6 +591,62 @@ export default function AddMembership({ customers, plans, groups = [], onBack, o
             </SecondaryButton>
             <PrimaryButton onClick={handleConfirmSave}>
               Confirm & Create
+            </PrimaryButton>
+          </FormFooter>
+        </FormModal>
+      )}
+
+      {/* Add Customer Modal */}
+      {showAddCustomerModal && (
+        <FormModal
+          isOpen={showAddCustomerModal}
+          onClose={() => setShowAddCustomerModal(false)}
+          title="Add New Customer"
+        >
+          <div className="space-y-4 p-4">
+            <div>
+              <label className="block text-sm mb-1.5 font-medium text-neutral-700 dark:text-neutral-300">
+                Full Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={newCustomerForm.name}
+                onChange={(e) => setNewCustomerForm({ ...newCustomerForm, name: e.target.value })}
+                placeholder="Enter full name"
+                className="w-full px-4 py-2.5 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm mb-1.5 font-medium text-neutral-700 dark:text-neutral-300">
+                Email Address
+              </label>
+              <input
+                type="email"
+                value={newCustomerForm.email}
+                onChange={(e) => setNewCustomerForm({ ...newCustomerForm, email: e.target.value })}
+                placeholder="Enter email address"
+                className="w-full px-4 py-2.5 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm mb-1.5 font-medium text-neutral-700 dark:text-neutral-300">
+                Phone Number <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={newCustomerForm.phone}
+                onChange={(e) => setNewCustomerForm({ ...newCustomerForm, phone: e.target.value })}
+                placeholder="Enter phone number"
+                className="w-full px-4 py-2.5 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+          </div>
+          <FormFooter>
+            <SecondaryButton onClick={() => setShowAddCustomerModal(false)}>
+              Cancel
+            </SecondaryButton>
+            <PrimaryButton onClick={handleAddNewCustomer}>
+              Add Customer
             </PrimaryButton>
           </FormFooter>
         </FormModal>

@@ -15,6 +15,9 @@ import { GlobalHeader } from "./components/GlobalHeader";
 import Authentication from "./components/Authentication";
 import Comments from "./components/Comments";
 import Groups from "./modules/groups/Groups";
+import TransactionReport from "./components/TransactionReport";
+import DailyCollectionReport from "./components/DailyCollectionReport";
+import OfflinePurchaseReport from "./components/OfflinePurchaseReport";
 import { Toaster } from "sonner";
 
 export default function App() {
@@ -172,6 +175,12 @@ export default function App() {
           <AdminUsersManagement />
         ) : currentPage === "roles" ? (
           <RoleManagement />
+        ) : currentPage === "transaction-report" ? (
+          <TransactionReport />
+        ) : currentPage === "daily-collection-report" ? (
+          <DailyCollectionReport />
+        ) : currentPage === "offline-purchase-report" ? (
+          <OfflinePurchaseReport />
         ) : (
           <div className="p-6 text-neutral-500">
             Select a module to preview UI components

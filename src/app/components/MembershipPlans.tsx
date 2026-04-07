@@ -15,10 +15,12 @@ import {
   Power,
   PowerOff,
   Check,
+  Users,
 } from 'lucide-react';
 import { ListHeader, ViewMode } from './hb/common/ListHeader';
 import { FilterPanel, FilterField } from './hb/common/FilterPanel';
 import { Pagination } from './hb/common/Pagination';
+import { StatCard } from './hb/common/StatCard';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { toast } from 'sonner';
@@ -221,6 +223,31 @@ export default function MembershipPlans() {
   const [showFilters, setShowFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null);
+
+  // Stats
+  const stats = useMemo(() => {
+    const totalPlans = mockPlans.length;
+    const activePlans = mockPlans.filter(p => p.status === 'active').length;
+    const totalSubscribers = mockPlans.reduce((sum, p) => sum + (p.subscribers || 0), 0);
+
+    return [
+      {
+        label: 'Total Plans',
+        value: totalPlans.toString(),
+        icon: Crown,
+      },
+      {
+        label: 'Active Plans',
+        value: activePlans.toString(),
+        icon: Check,
+      },
+      {
+        label: 'Total Subscribers',
+        value: totalSubscribers.toLocaleString(),
+        icon: Users,
+      }
+    ];
+  }, []);
   
   // Filter states
   const [filters, setFilters] = useState({
@@ -620,6 +647,15 @@ export default function MembershipPlans() {
         onAddNew={() => toast.success('Add new plan feature coming soon')}
         addNewLabel="Add New"
       />
+
+      {/* KPI Cards */}
+      <div className="px-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {stats.map((stat, i) => (
+            <StatCard key={i} {...stat} />
+          ))}
+        </div>
+      </div>
 
       {/* Filters */}
       <FilterPanel

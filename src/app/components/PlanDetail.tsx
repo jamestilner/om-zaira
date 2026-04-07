@@ -24,13 +24,15 @@ interface Plan {
   status: 'active' | 'inactive';
   createdAt: string;
   subscribers?: number;
+  complementaryInstallments?: number;
 }
 
 interface PlanUpdateData {
   title: string;
   description: string;
-  amount: string;
+  amountPerInstallment: string;
   installments: string;
+  complementaryInstallments: string;
 }
 
 interface Subscription {
@@ -118,13 +120,17 @@ export default function PlanDetail({ plan, onBack, onSave, onMembershipClick, on
   
   const [planTitle, setPlanTitle] = useState(plan.title);
   const [planDescription, setPlanDescription] = useState(plan.description);
-  const [amount, setAmount] = useState(plan.amount.toString());
+  const [amountPerInstallment, setAmountPerInstallment] = useState(plan.amountPerInstallment.toString());
   const [installments, setInstallments] = useState(plan.installments.toString());
+  const [complementaryInstallments, setComplementaryInstallments] = useState((plan.complementaryInstallments || 0).toString());
   
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [subscriptions] = useState<Subscription[]>(mockSubscriptions);
 
-  const amountPerInstallment = parseFloat(amount) / parseInt(installments || '1');
+  const api = parseFloat(amountPerInstallment) || 0;
+  const insts = parseInt(installments) || 1;
+  const cInsts = parseInt(complementaryInstallments) || 0;
+  const totalAmount = api * (insts + cInsts);
 
   const lastUpdated = new Date().toLocaleString('en-GB', {
     day: '2-digit',
@@ -146,20 +152,20 @@ export default function PlanDetail({ plan, onBack, onSave, onMembershipClick, on
       return;
     }
 
-    // Validate amount
-    if (!amount) {
-      toast.error('Plan amount is required');
+    // Validate amount per installment
+    if (!amountPerInstallment) {
+      toast.error('Amount per installment is required');
       return;
     }
 
-    const totalAmount = parseFloat(amount);
-    if (isNaN(totalAmount) || totalAmount <= 0) {
+    const apiVal = parseFloat(amountPerInstallment);
+    if (isNaN(apiVal) || apiVal <= 0) {
       toast.error('Please enter a valid amount');
       return;
     }
 
-    if (totalAmount < 1000) {
-      toast.error('Plan amount must be at least ₹1,000');
+    if (apiVal < 100) {
+      toast.error('Amount per installment must be at least ₹100');
       return;
     }
 
@@ -180,6 +186,12 @@ export default function PlanDetail({ plan, onBack, onSave, onMembershipClick, on
       return;
     }
 
+    const compInsts = parseInt(complementaryInstallments) || 0;
+    if (compInsts < 0 || compInsts > 20) {
+      toast.error('Complementary installments must be between 0-20');
+      return;
+    }
+
     // Validate description
     if (planDescription.trim()) {
       const wordCount = planDescription.trim().split(/\s+/).length;
@@ -196,8 +208,9 @@ export default function PlanDetail({ plan, onBack, onSave, onMembershipClick, on
     onSave(plan.id, {
       title: planTitle,
       description: planDescription,
-      amount,
+      amountPerInstallment,
       installments,
+      complementaryInstallments,
     });
     setShowConfirmModal(false);
     setIsEditing(false);
@@ -206,8 +219,9 @@ export default function PlanDetail({ plan, onBack, onSave, onMembershipClick, on
   const handleCancelEdit = () => {
     setPlanTitle(plan.title);
     setPlanDescription(plan.description);
-    setAmount(plan.amount.toString());
+    setAmountPerInstallment(plan.amountPerInstallment.toString());
     setInstallments(plan.installments.toString());
+    setComplementaryInstallments((plan.complementaryInstallments || 0).toString());
     setIsEditing(false);
   };
 
@@ -326,24 +340,24 @@ export default function PlanDetail({ plan, onBack, onSave, onMembershipClick, on
                 )}
               </div>
 
-              {/* Amount and Installments */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Amount Per Installment, Installments, Complementary */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                   <label className="block text-sm mb-2">
-                    Total Amount (₹) <span className="text-red-500">*</span>
+                    Amount per installment (₹) <span className="text-red-500">*</span>
                   </label>
                   {isEditing ? (
                     <input
                       type="number"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      min="1000"
+                      value={amountPerInstallment}
+                      onChange={(e) => setAmountPerInstallment(e.target.value)}
+                      min="100"
                       step="100"
                       className="w-full px-4 py-3 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
                     />
                   ) : (
                     <div className="px-4 py-3 bg-neutral-50 dark:bg-neutral-800 rounded-lg">
-                      ₹{plan.amount.toLocaleString('en-IN')}
+                      ₹{plan.amountPerInstallment.toLocaleString('en-IN')}
                     </div>
                   )}
                 </div>
@@ -367,22 +381,42 @@ export default function PlanDetail({ plan, onBack, onSave, onMembershipClick, on
                     </div>
                   )}
                 </div>
+
+                <div>
+                  <label className="block text-sm mb-2">
+                    Complementary Installments
+                  </label>
+                  {isEditing ? (
+                    <input
+                      type="number"
+                      value={complementaryInstallments}
+                      onChange={(e) => setComplementaryInstallments(e.target.value)}
+                      min="0"
+                      max="20"
+                      className="w-full px-4 py-3 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                    />
+                  ) : (
+                    <div className="px-4 py-3 bg-neutral-50 dark:bg-neutral-800 rounded-lg">
+                      {plan.complementaryInstallments || 0} months
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Amount Per Installment */}
+              {/* Calculated Total Amount */}
               <div>
-                <label className="block text-sm mb-2">Amount Per Installment (Calculated)</label>
+                <label className="block text-sm mb-2">Total Amount (Calculated)</label>
                 <div className="px-4 py-3 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
                   <div className="text-2xl font-semibold text-blue-600 dark:text-blue-400">
-                    ₹{(isEditing ? amountPerInstallment : plan.amountPerInstallment).toLocaleString('en-IN', { 
+                    ₹{(isEditing ? totalAmount : plan.amount).toLocaleString('en-IN', { 
                       minimumFractionDigits: 2, 
                       maximumFractionDigits: 2 
                     })}
                   </div>
                   <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
                     {isEditing 
-                      ? `₹${parseFloat(amount || '0').toLocaleString('en-IN')} ÷ ${installments || '1'} installments`
-                      : `₹${plan.amount.toLocaleString('en-IN')} ÷ ${plan.installments} installments`
+                      ? `₹${parseFloat(amountPerInstallment || '0').toLocaleString('en-IN')} × (${installments || '1'} + ${complementaryInstallments || '0'}) installments`
+                      : `₹${plan.amountPerInstallment.toLocaleString('en-IN')} × (${plan.installments} + ${plan.complementaryInstallments || 0}) installments`
                     }
                   </p>
                 </div>
@@ -614,17 +648,17 @@ export default function PlanDetail({ plan, onBack, onSave, onMembershipClick, on
                 <span className="text-sm font-medium">{planTitle}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-neutral-500 dark:text-neutral-400">Total Amount:</span>
-                <span className="text-sm font-medium">₹{parseFloat(amount).toLocaleString('en-IN')}</span>
+                <span className="text-sm text-neutral-500 dark:text-neutral-400">Per Installment:</span>
+                <span className="text-sm font-medium">₹{parseFloat(amountPerInstallment).toLocaleString('en-IN')}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-neutral-500 dark:text-neutral-400">Installments:</span>
-                <span className="text-sm font-medium">{installments} months</span>
+                <span className="text-sm font-medium">{installments} (+{complementaryInstallments})</span>
               </div>
               <div className="flex justify-between pt-2 border-t border-neutral-200 dark:border-neutral-700">
-                <span className="text-sm text-neutral-500 dark:text-neutral-400">Per Installment:</span>
+                <span className="text-sm text-neutral-500 dark:text-neutral-400">Total Amount:</span>
                 <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
-                  ₹{amountPerInstallment.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ₹{totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
             </div>

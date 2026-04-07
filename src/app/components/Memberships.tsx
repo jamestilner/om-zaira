@@ -228,7 +228,7 @@ export default function Memberships() {
         onClose={() => setSelectedMembership(null)}
         onUpdate={(updatedMembership) => {
           // Update the membership in the list
-          setMemberships(prev => 
+          setMemberships(prev =>
             prev.map(m => m.id === updatedMembership.id ? updatedMembership : m)
           );
           setSelectedMembership(updatedMembership);
@@ -383,10 +383,10 @@ export default function Memberships() {
                     <div>
                       <span className="font-medium">{membership.uid}</span>
                       <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                        Started {new Date(membership.startDate).toLocaleDateString('en-GB', { 
-                          day: 'numeric', 
-                          month: 'short', 
-                          year: 'numeric' 
+                        Started {new Date(membership.startDate).toLocaleDateString('en-GB', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric'
                         })}
                       </p>
                     </div>
@@ -421,7 +421,7 @@ export default function Memberships() {
                       </span>
                       <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
                         ₹{(
-                          membership.monthlyEMI || 
+                          membership.monthlyEMI ||
                           (membership.remaining / Math.max(1, membership.totalInstallments - membership.installmentsPaid))
                         ).toLocaleString('en-IN', { maximumFractionDigits: 0 })}/mo
                       </p>
@@ -450,12 +450,12 @@ export default function Memberships() {
                   </td>
                   <td className="px-6 py-4">
                     <span className="text-sm">
-                      {membership.nextPaymentDate 
-                        ? new Date(membership.nextPaymentDate).toLocaleDateString('en-GB', { 
-                            day: 'numeric', 
-                            month: 'short', 
-                            year: 'numeric' 
-                          })
+                      {membership.nextPaymentDate
+                        ? new Date(membership.nextPaymentDate).toLocaleDateString('en-GB', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric'
+                        })
                         : '-'
                       }
                     </span>

@@ -19,7 +19,6 @@ import { FilterDrawer, FilterField } from './hb/common/FilterDrawer';
 import { Pagination } from './hb/common/Pagination';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import EventDetail from './EventDetail';
 import AddEvent from './AddEvent';
 import { toast } from 'sonner';
 
@@ -28,10 +27,10 @@ interface Event {
   id: string;
   title: string;
   startDate: string;
-  endDate: string;
+  startTime: string;
   numberOfInvites: number;
   venueName: string;
-  status: 'upcoming' | 'past';
+  status: 'Active' | 'Inactive';
   bannerUrl: string;
   description: string;
 }
@@ -42,10 +41,10 @@ const mockEvents: Event[] = [
     id: '1',
     title: 'Annual Tech Summit 2025',
     startDate: '2025-04-15',
-    endDate: '2025-04-16',
+    startTime: '09:00',
     numberOfInvites: 500,
     venueName: 'Grand Convention Center',
-    status: 'upcoming',
+    status: 'Active',
     bannerUrl: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800',
     description: 'Join us for the biggest technology summit of the year featuring keynote speakers, workshops, and networking opportunities with industry leaders.',
   },
@@ -53,10 +52,10 @@ const mockEvents: Event[] = [
     id: '2',
     title: 'Community Health Fair',
     startDate: '2025-03-20',
-    endDate: '2025-03-21',
+    startTime: '10:00',
     numberOfInvites: 150,
     venueName: 'City Community Hall',
-    status: 'upcoming',
+    status: 'Active',
     bannerUrl: 'https://images.unsplash.com/photo-1505751172876-fa1923c5c528?w=800',
     description: 'A comprehensive health fair offering free health screenings, consultations, and wellness workshops for the entire community.',
   },
@@ -64,10 +63,10 @@ const mockEvents: Event[] = [
     id: '3',
     title: 'Digital Marketing Masterclass',
     startDate: '2025-05-10',
-    endDate: '2025-05-12',
+    startTime: '13:00',
     numberOfInvites: 50,
     venueName: 'Innovation Hub',
-    status: 'upcoming',
+    status: 'Active',
     bannerUrl: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?w=800',
     description: 'Master the art of digital marketing with expert trainers covering SEO, social media marketing, content strategy, and analytics.',
   },
@@ -75,10 +74,10 @@ const mockEvents: Event[] = [
     id: '4',
     title: 'New Year Celebration Gala',
     startDate: '2025-01-01',
-    endDate: '2025-01-02',
+    startTime: '20:00',
     numberOfInvites: 200,
     venueName: 'Royal Ballroom',
-    status: 'past',
+    status: 'Inactive',
     bannerUrl: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800',
     description: 'Ring in the new year with an elegant gala featuring live music, gourmet dining, and spectacular fireworks display.',
   },
@@ -86,10 +85,10 @@ const mockEvents: Event[] = [
     id: '5',
     title: 'Environmental Awareness Campaign',
     startDate: '2025-02-28',
-    endDate: '2025-03-01',
+    startTime: '08:00',
     numberOfInvites: 300,
     venueName: 'Green Valley Resort',
-    status: 'past',
+    status: 'Inactive',
     bannerUrl: 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=800',
     description: 'An interactive campaign focused on environmental conservation, sustainable living, and climate action strategies.',
   },
@@ -100,7 +99,6 @@ export default function EventManagement() {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [isAddingEvent, setIsAddingEvent] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -113,8 +111,7 @@ export default function EventManagement() {
   const filteredEvents = useMemo(() => {
     return events.filter((event) => {
       const matchesSearch =
-        event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        event.venueName.toLowerCase().includes(searchQuery.toLowerCase());
+        event.title.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesStatus =
         selectedStatus === 'all' || event.status === selectedStatus;
@@ -150,7 +147,7 @@ export default function EventManagement() {
   const stats = useMemo(() => {
     return {
       total: events.length,
-      upcoming: events.filter((e) => e.status === 'upcoming').length,
+      upcoming: events.filter((e) => e.status === 'Active').length,
     };
   }, [events]);
 
@@ -206,17 +203,6 @@ export default function EventManagement() {
     setCurrentPage(1);
   };
 
-  // Show detail view
-  if (selectedEvent) {
-    return (
-      <EventDetail
-        event={selectedEvent}
-        onBack={() => setSelectedEvent(null)}
-        onEdit={handleEditEvent}
-      />
-    );
-  }
-
   // Show add/edit view
   if (isAddingEvent) {
     return (
@@ -250,7 +236,7 @@ export default function EventManagement() {
         <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-neutral-500 dark:text-neutral-400">Upcoming Events</p>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">Active Events</p>
               <p className="text-3xl mt-1">{stats.upcoming}</p>
             </div>
             <div className="w-12 h-12 bg-green-100 dark:bg-green-900/20 rounded-lg flex items-center justify-center">
@@ -293,8 +279,8 @@ export default function EventManagement() {
             className="w-full h-10 px-3 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg text-sm text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
           >
             <option value="all">All Status</option>
-            <option value="upcoming">Upcoming</option>
-            <option value="past">Past</option>
+            <option value="Active">Active</option>
+            <option value="Inactive">Inactive</option>
           </select>
         </FilterField>
 
@@ -324,7 +310,7 @@ export default function EventManagement() {
             <div
               key={event.id}
               className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 overflow-hidden hover:shadow-lg transition-all cursor-pointer"
-              onClick={() => setSelectedEvent(event)}
+              onClick={() => handleEditEvent(event)}
             >
               <div className="relative h-48 bg-neutral-200 dark:bg-neutral-800">
                 <img
@@ -333,7 +319,7 @@ export default function EventManagement() {
                   className="w-full h-full object-cover"
                 />
                 <div className="absolute top-3 right-3">
-                  <Badge variant={event.status === 'upcoming' ? 'default' : 'secondary'}>
+                  <Badge variant={event.status === 'Active' ? 'default' : 'secondary'}>
                     {event.status}
                   </Badge>
                 </div>
@@ -346,16 +332,8 @@ export default function EventManagement() {
                   <div className="flex items-center gap-2 text-neutral-600 dark:text-neutral-400">
                     <Calendar className="w-4 h-4 flex-shrink-0" />
                     <span className="line-clamp-1">
-                      {formatDate(event.startDate)} - {formatDate(event.endDate)}
+                      {formatDate(event.startDate)} at {event.startTime}
                     </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-neutral-600 dark:text-neutral-400">
-                    <MapPin className="w-4 h-4 flex-shrink-0" />
-                    <span className="line-clamp-1">{event.venueName}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-neutral-600 dark:text-neutral-400">
-                    <Users className="w-4 h-4 flex-shrink-0" />
-                    <span className="line-clamp-1">{event.numberOfInvites} Invites</span>
                   </div>
                 </div>
               </div>
@@ -373,9 +351,7 @@ export default function EventManagement() {
                 <tr>
                   <th className="text-left px-6 py-3 text-sm">Event Title</th>
                   <th className="text-left px-6 py-3 text-sm">Start Date</th>
-                  <th className="text-left px-6 py-3 text-sm">End Date</th>
-                  <th className="text-left px-6 py-3 text-sm"># of Invites</th>
-                  <th className="text-left px-6 py-3 text-sm">Venue</th>
+                  <th className="text-left px-6 py-3 text-sm">Start Time</th>
                   <th className="text-left px-6 py-3 text-sm">Status</th>
                 </tr>
               </thead>
@@ -384,7 +360,7 @@ export default function EventManagement() {
                   <tr
                     key={event.id}
                     className="hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors cursor-pointer"
-                    onClick={() => setSelectedEvent(event)}
+                    onClick={() => handleEditEvent(event)}
                   >
                     <td className="px-6 py-4">
                       <span className="font-medium line-clamp-1">{event.title}</span>
@@ -393,16 +369,10 @@ export default function EventManagement() {
                       <span className="text-sm">{formatDate(event.startDate)}</span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="text-sm">{formatDate(event.endDate)}</span>
+                      <span className="text-sm">{event.startTime}</span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="text-sm">{event.numberOfInvites}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm line-clamp-1">{event.venueName}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <Badge variant={event.status === 'upcoming' ? 'default' : 'secondary'}>
+                      <Badge variant={event.status === 'Active' ? 'default' : 'secondary'}>
                         {event.status}
                       </Badge>
                     </td>

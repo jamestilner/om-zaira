@@ -14,10 +14,10 @@ import { FormModal, FormFooter } from './hb/common/Form';
 interface EventData {
   title: string;
   startDate: string;
-  endDate: string;
+  startTime: string;
   bannerUrl: string;
   description: string;
-  status: 'upcoming' | 'past';
+  status: 'Active' | 'Inactive';
 }
 
 interface AddEventProps {
@@ -32,7 +32,8 @@ export default function AddEvent({ event, onBack, onSave }: AddEventProps) {
 
   const [title, setTitle] = useState(event?.title || '');
   const [startDate, setStartDate] = useState(event?.startDate || event?.date || '');
-  const [endDate, setEndDate] = useState(event?.endDate || '');
+  const [startTime, setStartTime] = useState(event?.startTime || '');
+  const [status, setStatus] = useState<'Active' | 'Inactive'>(event?.status || 'Active');
   const [bannerUrl, setBannerUrl] = useState(event?.bannerUrl || '');
   const [description, setDescription] = useState(event?.description || '');
   
@@ -97,21 +98,10 @@ export default function AddEvent({ event, onBack, onSave }: AddEventProps) {
       return;
     }
 
-    // Validate end date
-    if (!endDate) {
-      toast.error('End Date is required');
+    // Validate start time
+    if (!startTime) {
+      toast.error('Start Time is required');
       return;
-    }
-
-    // Validate end date is after or equal to start date
-    if (startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      
-      if (end < start) {
-        toast.error('End Date cannot be before Start Date');
-        return;
-      }
     }
 
     // For new events, start date must not be in the past (optional, but keep consistent)
@@ -136,16 +126,10 @@ export default function AddEvent({ event, onBack, onSave }: AddEventProps) {
   };
 
   const handleConfirmSave = () => {
-    // Determine status based on end date
-    const selectedEndDate = new Date(endDate);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const status: 'upcoming' | 'past' = selectedEndDate >= today ? 'upcoming' : 'past';
-
     onSave({
       title,
       startDate,
-      endDate,
+      startTime,
       bannerUrl,
       description,
       status,
@@ -238,21 +222,36 @@ export default function AddEvent({ event, onBack, onSave }: AddEventProps) {
             />
           </div>
 
-          {/* End Date */}
+          {/* Start Time */}
           <div>
             <label className="block text-sm mb-2">
-              End Date <span className="text-red-500">*</span>
+              Start Time <span className="text-red-500">*</span>
             </label>
             <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
+              type="time"
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
               className="w-full px-4 py-3 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
             />
           </div>
         </div>
 
-        {/* Upload Image (Moved after End Date) */}
+        {/* Status */}
+        <div>
+          <label className="block text-sm mb-2">
+            Status <span className="text-red-500">*</span>
+          </label>
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value as 'Active' | 'Inactive')}
+            className="w-full px-4 py-3 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+          >
+            <option value="Active">Active</option>
+            <option value="Inactive">Inactive</option>
+          </select>
+        </div>
+
+        {/* Upload Image */}
         <div>
           <label className="block text-sm mb-2">
             Upload Image <span className="text-red-500">*</span>
@@ -348,8 +347,12 @@ export default function AddEvent({ event, onBack, onSave }: AddEventProps) {
                 <span className="text-sm font-medium text-right">{formatDisplayDate(startDate)}</span>
               </div>
               <div className="flex justify-between gap-4">
-                <span className="text-sm text-neutral-500 dark:text-neutral-400">End Date:</span>
-                <span className="text-sm font-medium text-right">{formatDisplayDate(endDate)}</span>
+                <span className="text-sm text-neutral-500 dark:text-neutral-400">Start Time:</span>
+                <span className="text-sm font-medium text-right">{startTime}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-sm text-neutral-500 dark:text-neutral-400">Status:</span>
+                <span className="text-sm font-medium text-right">{status}</span>
               </div>
             </div>
           </div>

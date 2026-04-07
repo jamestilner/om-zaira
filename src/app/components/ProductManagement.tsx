@@ -43,7 +43,6 @@ interface Product {
   description: string;
   images: string[];
   status: 'active' | 'inactive';
-  availability?: 'In Stock' | 'Sold out';
   createdAt: string;
   category?: string;
   productInformation?: string;
@@ -59,7 +58,6 @@ const mockProducts: Product[] = [
     description: 'Exquisite diamond necklace with intricate design',
     images: ['https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=400'],
     status: 'active',
-    availability: 'In Stock',
     createdAt: '2024-01-15',
     category: 'jewelry',
     productInformation: 'Shape/Cut: ROUND BRILLIANT\nColor: GH\nD.W: 0.28',
@@ -72,7 +70,6 @@ const mockProducts: Product[] = [
     description: 'Traditional gold bangles with intricate patterns',
     images: ['https://images.unsplash.com/photo-1611591437281-460bfbe1220a?w=400'],
     status: 'active',
-    availability: 'In Stock',
     createdAt: '2024-01-20',
     category: 'jewelry',
   },
@@ -83,7 +80,6 @@ const mockProducts: Product[] = [
     description: 'Elegant pearl earrings with gold setting',
     images: ['https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=400'],
     status: 'active',
-    availability: 'In Stock',
     createdAt: '2024-02-01',
     category: 'jewelry',
   },
@@ -94,7 +90,6 @@ const mockProducts: Product[] = [
     description: 'Premium platinum ring with diamond accents',
     images: ['https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=400'],
     status: 'active',
-    availability: 'In Stock',
     createdAt: '2024-02-10',
     category: 'jewelry',
   },
@@ -105,7 +100,6 @@ const mockProducts: Product[] = [
     description: 'Stunning ruby pendant with gold chain',
     images: ['https://images.unsplash.com/photo-1573408301185-9146fe634ad0?w=400'],
     status: 'inactive',
-    availability: 'Sold out',
     createdAt: '2024-02-15',
     category: 'jewelry',
   },
@@ -116,7 +110,6 @@ const mockProducts: Product[] = [
     description: 'Modern silver bracelet with contemporary design',
     images: ['https://images.unsplash.com/photo-1611591437281-460bfbe1220a?w=400'],
     status: 'active',
-    availability: 'In Stock',
     createdAt: '2024-02-20',
     category: 'jewelry',
   },
@@ -201,7 +194,6 @@ export default function ProductManagement() {
       category: productData.category,
       images: productData.images,
       status: productData.status || 'active',
-      availability: productData.availability || 'In Stock',
       createdAt: new Date().toLocaleString('en-GB', {
         day: '2-digit',
         month: '2-digit',
@@ -229,7 +221,6 @@ export default function ProductManagement() {
             sku: productData.sku,
             images: productData.images,
             status: productData.status || p.status,
-            availability: productData.availability || p.availability,
             productInformation: productData.productInformation,
             productFeatures: productData.productFeatures,
           }
@@ -278,11 +269,6 @@ export default function ProductManagement() {
               ) : (
                 <Badge variant="default" className="bg-success-50 text-success-700 dark:bg-success-950/50 dark:text-success-400 text-xs">Active</Badge>
               )}
-              {product.availability === 'Sold out' ? (
-                <Badge variant="destructive" className="text-xs">Sold out</Badge>
-              ) : (
-                <Badge variant="default" className="bg-primary-50 text-primary-700 dark:bg-primary-950/50 dark:text-primary-400 text-xs">In Stock</Badge>
-              )}
             </div>
 
             <h3 className="font-semibold text-neutral-900 dark:text-white mb-1 line-clamp-1">
@@ -329,11 +315,6 @@ export default function ProductManagement() {
                     ) : (
                       <Badge variant="default" className="bg-success-50 text-success-700 dark:bg-success-950/50 dark:text-success-400 text-xs">Active</Badge>
                     )}
-                    {product.availability === 'Sold out' ? (
-                      <Badge variant="destructive" className="text-xs">Sold out</Badge>
-                    ) : (
-                      <Badge variant="default" className="bg-primary-50 text-primary-700 dark:bg-primary-950/50 dark:text-primary-400 text-xs">In Stock</Badge>
-                    )}
                   </div>
                   <h3 className="font-semibold text-neutral-900 dark:text-white mb-1">
                     {product.name}
@@ -364,9 +345,6 @@ export default function ProductManagement() {
             </th>
             <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">
               Status
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">
-              Availability
             </th>
           </tr>
         </thead>
@@ -408,13 +386,6 @@ export default function ProductManagement() {
                   <Badge variant="secondary" className="text-xs bg-neutral-100 text-neutral-600">Inactive</Badge>
                 ) : (
                   <Badge variant="default" className="bg-success-50 text-success-700 dark:bg-success-950/50 dark:text-success-400 text-xs">Active</Badge>
-                )}
-              </td>
-              <td className="px-6 py-4">
-                {product.availability === 'Sold out' ? (
-                  <Badge variant="destructive" className="text-xs">Sold out</Badge>
-                ) : (
-                  <Badge variant="default" className="bg-primary-50 text-primary-700 dark:bg-primary-950/50 dark:text-primary-400 text-xs">In Stock</Badge>
                 )}
               </td>
             </tr>

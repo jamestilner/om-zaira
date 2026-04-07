@@ -14,8 +14,9 @@ import { FormModal, FormFooter } from './hb/common/Form';
 interface PlanData {
   title: string;
   description: string;
-  amount: string;
+  amountPerInstallment: string;
   installments: string;
+  complementaryInstallments: string;
 }
 
 interface AddPlanProps {
@@ -26,9 +27,10 @@ interface AddPlanProps {
 export default function AddPlan({ onBack, onSave }: AddPlanProps) {
   const [planTitle, setPlanTitle] = useState('');
   const [planDescription, setPlanDescription] = useState('');
-  const [amount, setAmount] = useState('');
+  const [amountPerInstallment, setAmountPerInstallment] = useState('');
   const [installments, setInstallments] = useState('');
-  const [amountPerInstallment, setAmountPerInstallment] = useState<number>(0);
+  const [complementaryInstallments, setComplementaryInstallments] = useState('0');
+  const [totalAmount, setTotalAmount] = useState<number>(0);
   const [generatedPlanId, setGeneratedPlanId] = useState('');
   
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -41,22 +43,23 @@ export default function AddPlan({ onBack, onSave }: AddPlanProps) {
     setGeneratedPlanId(planId);
   }, []);
 
-  // Calculate amount per installment
+  // Calculate total amount
   useEffect(() => {
-    if (amount && installments) {
-      const totalAmount = parseFloat(amount);
+    if (amountPerInstallment && installments) {
+      const api = parseFloat(amountPerInstallment);
       const numInstallments = parseInt(installments);
+      const compInstallments = parseInt(complementaryInstallments) || 0;
       
-      if (!isNaN(totalAmount) && !isNaN(numInstallments) && numInstallments > 0) {
-        const perInstallment = totalAmount / numInstallments;
-        setAmountPerInstallment(perInstallment);
+      if (!isNaN(api) && !isNaN(numInstallments) && numInstallments > 0) {
+        const total = api * (numInstallments + compInstallments);
+        setTotalAmount(total);
       } else {
-        setAmountPerInstallment(0);
+        setTotalAmount(0);
       }
     } else {
-      setAmountPerInstallment(0);
+      setTotalAmount(0);
     }
-  }, [amount, installments]);
+  }, [amountPerInstallment, installments, complementaryInstallments]);
 
   const handleSaveClick = () => {
     // Validate title
@@ -70,20 +73,20 @@ export default function AddPlan({ onBack, onSave }: AddPlanProps) {
       return;
     }
 
-    // Validate amount
-    if (!amount) {
-      toast.error('Plan amount is required');
+    // Validate amount per installment
+    if (!amountPerInstallment) {
+      toast.error('Amount per installment is required');
       return;
     }
 
-    const totalAmount = parseFloat(amount);
-    if (isNaN(totalAmount) || totalAmount <= 0) {
-      toast.error('Please enter a valid amount');
+    const api = parseFloat(amountPerInstallment);
+    if (isNaN(api) || api <= 0) {
+      toast.error('Please enter a valid amount per installment');
       return;
     }
 
-    if (totalAmount < 1000) {
-      toast.error('Plan amount must be at least ₹1,000');
+    if (api < 100) {
+      toast.error('Amount per installment must be at least ₹100');
       return;
     }
 
@@ -104,6 +107,12 @@ export default function AddPlan({ onBack, onSave }: AddPlanProps) {
       return;
     }
 
+    const compInstallments = parseInt(complementaryInstallments) || 0;
+    if (compInstallments < 0 || compInstallments > 20) {
+      toast.error('Complementary installments must be between 0-20');
+      return;
+    }
+
     // Validate description (optional but if provided, check word count)
     if (planDescription.trim()) {
       const wordCount = planDescription.trim().split(/\s+/).length;
@@ -120,8 +129,9 @@ export default function AddPlan({ onBack, onSave }: AddPlanProps) {
     onSave({
       title: planTitle,
       description: planDescription,
-      amount,
+      amountPerInstallment,
       installments,
+      complementaryInstallments,
     });
     setShowConfirmModal(false);
   };
@@ -195,25 +205,21 @@ export default function AddPlan({ onBack, onSave }: AddPlanProps) {
               </p>
             </div>
 
-            {/* Amount and Installments Row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Amount */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Amount Per Installment */}
               <div>
                 <label className="block text-sm mb-2">
-                  Total Amount (₹) <span className="text-red-500">*</span>
+                  Amount per installment (₹) <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="60000"
-                  min="1000"
+                  value={amountPerInstallment}
+                  onChange={(e) => setAmountPerInstallment(e.target.value)}
+                  placeholder="5000"
+                  min="100"
                   step="100"
                   className="w-full px-4 py-3 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
                 />
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                  Minimum amount: ₹1,000
-                </p>
               </div>
 
               {/* Number of Installments */}
@@ -230,35 +236,48 @@ export default function AddPlan({ onBack, onSave }: AddPlanProps) {
                   max="60"
                   className="w-full px-4 py-3 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
                 />
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                  Range: 1-60 installments
-                </p>
+              </div>
+
+              {/* Complementary Installments */}
+              <div>
+                <label className="block text-sm mb-2">
+                  Complementary Installments
+                </label>
+                <input
+                  type="number"
+                  value={complementaryInstallments}
+                  onChange={(e) => setComplementaryInstallments(e.target.value)}
+                  placeholder="0"
+                  min="0"
+                  max="20"
+                  className="w-full px-4 py-3 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                />
               </div>
             </div>
 
-            {/* Calculated Amount Per Installment */}
+            {/* Calculated Total Amount */}
             <div className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
                   <Calculator className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium">Amount Per Installment (Calculated)</h3>
+                  <h3 className="text-sm font-medium">Total Amount (Calculated)</h3>
                   <p className="text-xs text-neutral-600 dark:text-neutral-400">
-                    Automatically calculated based on total amount ÷ installments
+                    Automatically calculated based on amount per installment × (installments + complementary installments)
                   </p>
                 </div>
               </div>
               <div className="text-3xl font-semibold text-blue-600 dark:text-blue-400">
-                {amountPerInstallment > 0 
-                  ? `₹${amountPerInstallment.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                {totalAmount > 0 
+                  ? `₹${totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                   : '₹0.00'
                 }
               </div>
               <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-2">
-                {amount && installments && amountPerInstallment > 0
-                  ? `₹${parseFloat(amount).toLocaleString('en-IN')} ÷ ${installments} installments`
-                  : 'Enter amount and installments to see calculation'
+                {amountPerInstallment && installments && totalAmount > 0
+                  ? `₹${parseFloat(amountPerInstallment).toLocaleString('en-IN')} × (${installments} + ${complementaryInstallments || 0}) installments`
+                  : 'Enter amount per installment and installments to see calculation'
                 }
               </p>
             </div>
@@ -299,17 +318,17 @@ export default function AddPlan({ onBack, onSave }: AddPlanProps) {
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-neutral-500 dark:text-neutral-400">Total Amount:</span>
-                <span className="text-sm font-medium">₹{parseFloat(amount).toLocaleString('en-IN')}</span>
+                <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                  ₹{totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-neutral-500 dark:text-neutral-400">Installments:</span>
-                <span className="text-sm font-medium">{installments} months</span>
+                <span className="text-sm font-medium">{installments} (+{complementaryInstallments})</span>
               </div>
               <div className="flex justify-between pt-2 border-t border-neutral-200 dark:border-neutral-700">
                 <span className="text-sm text-neutral-500 dark:text-neutral-400">Per Installment:</span>
-                <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
-                  ₹{amountPerInstallment.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
+                <span className="text-sm font-medium">₹{parseFloat(amountPerInstallment).toLocaleString('en-IN')}</span>
               </div>
             </div>
           </div>
