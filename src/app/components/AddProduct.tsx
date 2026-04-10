@@ -6,11 +6,11 @@
  */
 
 import { useState, useRef } from 'react';
-import { Upload, X, GripVertical, Save, ChevronLeft, Plus, Trash2 } from 'lucide-react';
+import { Upload, X, GripVertical, Save, ChevronLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { PrimaryButton, SecondaryButton } from './hb/listing';
 import { FormModal, FormFooter } from './hb/common/Form';
-import { getCategoryNames, getSubcategories } from '../constants/productCategories';
+import { getCategoryNames } from '../constants/productCategories';
 
 interface ProductImage {
   id: string;
@@ -20,13 +20,10 @@ interface ProductImage {
 
 interface ProductData {
   name: string;
-  description: string;
   category: string;
-  subCategory: string;
   sku: string;
   images: string[];
-  productInformation: string;
-  productFeatures: string[];
+  status: 'active' | 'inactive';
 }
 
 interface AddProductProps {
@@ -36,12 +33,9 @@ interface AddProductProps {
 
 export default function AddProduct({ onBack, onSave }: AddProductProps) {
   const [productTitle, setProductTitle] = useState('');
-  const [productCategory, setProductCategory] = useState('');
-  const [subCategory, setSubCategory] = useState('');
   const [sku, setSku] = useState('');
-  const [productInformation, setProductInformation] = useState('');
-  const [productFeatures, setProductFeatures] = useState<string[]>([]);
-  const [newFeature, setNewFeature] = useState('');
+  const [productCategory, setProductCategory] = useState('');
+  const [status, setStatus] = useState<'active' | 'inactive'>('active');
   
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [images, setImages] = useState<ProductImage[]>([]);
@@ -170,13 +164,10 @@ export default function AddProduct({ onBack, onSave }: AddProductProps) {
   const handleConfirmSave = () => {
     const productData: ProductData = {
       name: productTitle,
-      description: '',
       category: productCategory,
-      subCategory,
       sku,
       images: images.map(img => img.url),
-      productInformation,
-      productFeatures,
+      status,
     };
 
     onSave(productData);
@@ -186,17 +177,6 @@ export default function AddProduct({ onBack, onSave }: AddProductProps) {
 
   const handleDiscardSave = () => {
     setShowConfirmModal(false);
-  };
-
-  const handleAddFeature = () => {
-    if (newFeature.trim()) {
-      setProductFeatures(prev => [...prev, newFeature]);
-      setNewFeature('');
-    }
-  };
-
-  const handleRemoveFeature = (index: number) => {
-    setProductFeatures(prev => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -239,7 +219,51 @@ export default function AddProduct({ onBack, onSave }: AddProductProps) {
             </h3>
             
             <div className="space-y-4">
-              {/* 1. Product Title */}
+              {/* 1. SKU and Category */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                    SKU <span className="text-error-600">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={sku}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value.length <= 50) {
+                        setSku(value);
+                      }
+                    }}
+                    placeholder="Enter SKU"
+                    className="w-full px-4 py-2 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                    Category <span className="text-error-600">*</span>
+                  </label>
+                  <select
+                    value={productCategory}
+                    onChange={(e) => setProductCategory(e.target.value)}
+                    className="w-full h-[42px] px-4 py-2 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 appearance-none cursor-pointer"
+                    style={{
+                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 6L8 10L12 6' stroke='%239CA3AF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
+                      backgroundRepeat: 'no-repeat',
+                      backgroundPosition: 'right 0.75rem center'
+                    }}
+                  >
+                    <option value="">Select category</option>
+                    {getCategoryNames().map(category => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* 2. Product Title */}
               <div>
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                   Product Title <span className="text-error-600">*</span>
@@ -253,141 +277,39 @@ export default function AddProduct({ onBack, onSave }: AddProductProps) {
                       setProductTitle(value);
                     }
                   }}
-                  placeholder="Enter product title (1-100 characters, letters and numbers only)"
+                  placeholder="Enter product title"
                   className="w-full px-4 py-2 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
                 />
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                  {productTitle.length}/100 characters
-                </p>
               </div>
 
-              {/* 2. SKU */}
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                  SKU <span className="text-error-600">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={sku}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value.length <= 50) {
-                      setSku(value);
-                    }
-                  }}
-                  placeholder="Enter SKU (1-50 characters, letters and numbers only)"
-                  className="w-full px-4 py-2 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                />
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                  {sku.length}/50 characters
-                </p>
-              </div>
-
-              {/* 3. Product Category + Sub Category */}
+              {/* 3. Status Pills */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                    Product Category <span className="text-error-600">*</span>
+                    Status
                   </label>
-                  <select
-                    value={productCategory}
-                    onChange={(e) => {
-                      setProductCategory(e.target.value);
-                      setSubCategory(''); // Reset subcategory when category changes
-                    }}
-                    className="w-full px-4 py-2 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 appearance-none cursor-pointer"
-                    style={{
-                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 6L8 10L12 6' stroke='%239CA3AF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
-                      backgroundRepeat: 'no-repeat',
-                      backgroundPosition: 'right 0.75rem center'
-                    }}
-                  >
-                    <option value="">Select category</option>
-                    {getCategoryNames().map(category => (
-                      <option key={category} value={category}>{category}</option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                    From Category Master
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                    Sub Category <span className="text-error-600">*</span>
-                  </label>
-                  <select
-                    value={subCategory}
-                    onChange={(e) => setSubCategory(e.target.value)}
-                    disabled={!productCategory}
-                    className="w-full px-4 py-2 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 appearance-none cursor-pointer disabled:bg-neutral-100 dark:disabled:bg-neutral-900 disabled:cursor-not-allowed"
-                    style={{
-                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 6L8 10L12 6' stroke='%239CA3AF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
-                      backgroundRepeat: 'no-repeat',
-                      backgroundPosition: 'right 0.75rem center'
-                    }}
-                  >
-                    <option value="">Select sub category</option>
-                    {getSubcategories(productCategory).map(sub => (
-                      <option key={sub} value={sub}>{sub}</option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                    From Category Master
-                  </p>
-                </div>
-              </div>
-
-              {/* 4. Product Information */}
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                  Product Information
-                </label>
-                <textarea
-                  value={productInformation}
-                  onChange={(e) => setProductInformation(e.target.value)}
-                  placeholder="Enter product information"
-                  rows={5}
-                  className="w-full px-4 py-2 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
-                />
-              </div>
-
-              {/* 5. Product Features */}
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                  Product Features
-                </label>
-                <div className="space-y-2">
-                  {productFeatures.map((feature, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <span className="flex-1 text-neutral-900 dark:text-white">{feature}</span>
-                      <button
-                        onClick={() => handleRemoveFeature(index)}
-                        className="p-2 bg-error-600 hover:bg-error-700 text-white rounded-lg transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={newFeature}
-                      onChange={(e) => setNewFeature(e.target.value)}
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter') {
-                          handleAddFeature();
-                        }
-                      }}
-                      placeholder="Enter new feature"
-                      className="flex-1 px-4 py-2 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    />
+                  <div className="flex items-center gap-3">
                     <button
-                      onClick={handleAddFeature}
-                      className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap"
+                      type="button"
+                      onClick={() => setStatus('active')}
+                      className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+                        status === 'active'
+                          ? 'bg-success-50 text-success-700 border-success-200 dark:bg-success-950/50 dark:text-success-400 dark:border-success-800'
+                          : 'bg-white text-neutral-600 border-neutral-200 hover:bg-neutral-50 dark:bg-neutral-950 dark:text-neutral-400 dark:border-neutral-800 dark:hover:bg-neutral-900'
+                      }`}
                     >
-                      <Plus className="w-4 h-4" />
-                      Add Feature
+                      Active
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStatus('inactive')}
+                      className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+                        status === 'inactive'
+                          ? 'bg-neutral-100 text-neutral-700 border-neutral-300 dark:bg-neutral-800 dark:text-neutral-300 dark:border-neutral-700'
+                          : 'bg-white text-neutral-600 border-neutral-200 hover:bg-neutral-50 dark:bg-neutral-950 dark:text-neutral-400 dark:border-neutral-800 dark:hover:bg-neutral-900'
+                      }`}
+                    >
+                      Inactive
                     </button>
                   </div>
                 </div>
